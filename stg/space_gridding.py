@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+# encoding: utf-8
+"""
+This module handles the basic space gridding algorithm.
+
+:author:       Eva Schiffer (evas)
+:contact:      eva.schiffer@ssec.wisc.edu
+:organization: Space Science and Engineering Center (SSEC)
+:copyright:    Copyright (c) 2014 University of Wisconsin SSEC. All rights reserved.
+:date:         Jan 2014
+:license:      GNU GPLv3
+
+Copyright (C) 2014 Space Science and Engineering Center (SSEC),
+ University of Wisconsin-Madison.
+"""
+__docformat__ = "restructuredtext en"
+
+import numpy
+import logging
+
+from stg.constants import *
+
+LOG = logging.getLogger(__name__)
+
+def calculate_index_from_nav_data (aux_data, grid_degrees) :
+    """
+    given the aux data, use the navigation and masks to calculate
+    where the elements will be space gridded 
+    """
+    
+    # figure out where the day/night indexes will fall
+    day_lon_index   = numpy.round(aux_data[LON_KEY][aux_data[DAY_MASK_KEY]]   / grid_degrees)
+    day_lat_index   = numpy.round(aux_data[LAT_KEY][aux_data[DAY_MASK_KEY]]   / grid_degrees)
+    night_lon_index = numpy.round(aux_data[LON_KEY][aux_data[NIGHT_MASK_KEY]] / grid_degrees)
+    night_lat_index = numpy.round(aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]] / grid_degrees)
+    
+    return day_lon_index, day_lat_index, night_lon_index, night_lat_index
+
+def space_grid_data (grid_lon_size, grid_lat_size, data, lon_indexes, lat_indexes ) :
+    """
+    given lon/lat indexes, data, and the grid size, sort the data into a space grid
+    
+    returns the filled space grid (empty space is NaN values), a density map of where the data is, and the size of the deepest bucket
+    """
+    
+    space_grid_shape = (grid_lon_size, grid_lat_size) # TODO, is this the correct order?
+    
+    # create the density map and figure out how dense the data will be
+    # FUTURE, I do not like this looping solution, figure out how to do this in native numpy ops
+    density_map = numpy.zeros(space_grid_shape)
+    for index in range(len(data)) :
+        if not numpy.isnan(data[index]) :
+            density_map[lon_indexes[index], lat_indexes[index]] += 1
+    max_depth = numpy.max(density_map)
+    
+    # create the space grids for this variable
+    space_grid = numpy.ones((grid_lon_size, grid_lat_size, max_depth), dtype=numpy.float32) * numpy.nan #TODO, dtype
+    temp_depth = numpy.zeros(space_grid_shape)
+    
+    # put the variable data into the space grid
+    # FUTURE, I do not like this looping solution, figure out how to do this in native numpy ops
+    for index in range(len(data)) :
+        if not numpy.isnan(data[index]) :
+            space_grid[lon_indexes[index], lat_indexes[index], temp_depth[lon_indexes[index], lat_indexes[index]]] = data[index]
+            temp_depth[lon_indexes[index], lat_indexes[index]] += 1
+    
+    return space_grid, density_map, max_depth
+
+def pack_space_grid (data_array, density_array) :
+    """
+    given a sparse array of space gridded data and a density array
+    where every slice represents the density of one "layer" in the
+    sparse array, create a well packed version of the sparse array
+    and return it
+    """
+    
+    # figure out the maximum depth of the well packed data based on the density map
+    max_depth = numpy.max(numpy.sum(density_array, axis=0))
+    
+    # create the final data array at the right depth
+    final_data = numpy.ones((max_depth, data_array.shape[1], data_array.shape[2]), dtype=data_array.dtype)
+    final_data = final_data * numpy.nan
+    
+    LOG.debug("  original data shape: " + str(data_array.shape))
+    LOG.debug("  final data shape:    " + str(final_data.shape))
+    
+    # sort the sparse data into the final array
+    # FUTURE, find a way to do this without loops
+    for rows in range(data_array.shape[1]) :
+        for cols in range(data_array.shape[2]) :
+            
+            # pull the data for this element
+            temp_data = data_array[:, rows, cols]
+            temp      = temp_data[numpy.isfinite(temp_data)]
+            
+            # put the data for this element into the final array
+            final_data[0:temp.size, rows, cols] = temp
+    
+    return final_data
+
+

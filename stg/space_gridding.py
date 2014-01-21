@@ -29,10 +29,10 @@ def calculate_index_from_nav_data (aux_data, grid_degrees) :
     """
     
     # figure out where the day/night indexes will fall
-    day_lon_index   = numpy.round(aux_data[LON_KEY][aux_data[DAY_MASK_KEY]]   / grid_degrees)
-    day_lat_index   = numpy.round(aux_data[LAT_KEY][aux_data[DAY_MASK_KEY]]   / grid_degrees)
-    night_lon_index = numpy.round(aux_data[LON_KEY][aux_data[NIGHT_MASK_KEY]] / grid_degrees)
-    night_lat_index = numpy.round(aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]] / grid_degrees)
+    day_lon_index   = numpy.round((aux_data[LON_KEY][aux_data[DAY_MASK_KEY]]   +  90.0) / grid_degrees)
+    day_lat_index   = numpy.round((aux_data[LAT_KEY][aux_data[DAY_MASK_KEY]]   + 180.0) / grid_degrees)
+    night_lon_index = numpy.round((aux_data[LON_KEY][aux_data[NIGHT_MASK_KEY]] +  90.0) / grid_degrees)
+    night_lat_index = numpy.round((aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]] + 180.0) / grid_degrees)
     
     return day_lon_index, day_lat_index, night_lon_index, night_lat_index
 

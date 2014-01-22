@@ -34,16 +34,26 @@ DAY_TEMP_SUFFIX           = "_daytemp"
 NIGHT_TEMP_SUFFIX         = "_nighttemp"
 DAY_DENSITY_TEMP_SUFFIX   = "_daydensitytemp"
 NIGHT_DENSITY_TEMP_SUFFIX = "_nightdensitytemp"
-EXPECTED_TEMP_SUFFIXES    = [DAY_TEMP_SUFFIX, NIGHT_TEMP_SUFFIX, DAY_DENSITY_TEMP_SUFFIX, NIGHT_DENSITY_TEMP_SUFFIX]
+DAY_NOBS_TEMP_SUFFIX      = "_daynobstemp"
+NIGHT_NOBS_TEMP_SUFFIX    = "_nightnobstemp"
+EXPECTED_TEMP_SUFFIXES    = [DAY_TEMP_SUFFIX,         NIGHT_TEMP_SUFFIX,
+                             DAY_DENSITY_TEMP_SUFFIX, NIGHT_DENSITY_TEMP_SUFFIX,
+                             DAY_NOBS_TEMP_SUFFIX,    NIGHT_NOBS_TEMP_SUFFIX]
 
 # these are suffixes used for the final, packed files
 DAY_SUFFIX                = "_dayfinal"
 NIGHT_SUFFIX              = "_nightfinal"
-EXPECTED_FINAL_SUFFIXES   = [DAY_SUFFIX, NIGHT_SUFFIX]
+DAY_NOBS_SUFFIX           = "_daynobsfinal"
+NIGHT_NOBS_SUFFIX         = "_nightnobsfinal"
+EXPECTED_FINAL_SUFFIXES   = [DAY_SUFFIX,      NIGHT_SUFFIX,
+                             DAY_NOBS_SUFFIX, NIGHT_NOBS_SUFFIX]
 
 # all the suffixes we can produce
-ALL_EXPECTED_SUFFIXES     = [DAY_TEMP_SUFFIX, NIGHT_TEMP_SUFFIX, DAY_DENSITY_TEMP_SUFFIX, NIGHT_DENSITY_TEMP_SUFFIX,
-                             DAY_SUFFIX, NIGHT_SUFFIX]
+ALL_EXPECTED_SUFFIXES     = [DAY_TEMP_SUFFIX,         NIGHT_TEMP_SUFFIX,
+                             DAY_DENSITY_TEMP_SUFFIX, NIGHT_DENSITY_TEMP_SUFFIX,
+                             DAY_NOBS_TEMP_SUFFIX,    NIGHT_NOBS_TEMP_SUFFIX,
+                             DAY_SUFFIX,              NIGHT_SUFFIX,
+                             DAY_NOBS_SUFFIX,         NIGHT_NOBS_SUFFIX]
 
 def open_file (file_path) :
     """

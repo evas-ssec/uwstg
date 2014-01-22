@@ -128,11 +128,11 @@ python -m space_time_gridding
     The following functions represent available menu selections
     """
     
-    def space(*args):
-        """grid the input files in space
-        given an input directory that contains appropriate files MODIS,
-        grid them in space and put the resulting gridded date in the
-        output directory.
+    def space_day(*args):
+        """grid one day of input files in space
+        given an input directory that contains appropriate files,
+        grid them in space and put the resulting gridded files
+        for that day in the output directory.
         
         Note: the output directory will also be used for intermediary working
         files.
@@ -154,15 +154,20 @@ python -m space_time_gridding
         possible_files    = os.listdir(input_path)
         expected_vars     = { }
         all_vars          = set()
-        for file_name in possible_files :
+        date_time_temp    = None
+        for file_name in sorted(possible_files) :
             expected_vars[file_name] = general_guidebook.get_variable_names (file_name, user_requested_names=desired_variables)
             all_vars.update(expected_vars[file_name])
+            date_time_temp = general_guidebook.parse_datetime_from_filename(file_name) if date_time_temp is None else date_time_temp
+        
+        # figure out what our date stamp will look like
+        date_stamp = date_time_temp.strftime("%Y%m%d")
         
         # check to make sure our intermediate file names don't exist already
         for var_name in all_vars :
             
             for suffix in io_manager.ALL_EXPECTED_SUFFIXES :
-                temp_name  = fbf.filename(var_name + suffix, TEMP_DATA_TYPE, shape=(space_grid_shape))
+                temp_name  = fbf.filename(date_stamp + "_" + var_name + suffix, TEMP_DATA_TYPE, shape=(space_grid_shape))
                 if os.path.exists(os.path.join(output_path, temp_name)) :
                     LOG.warn ("Cannot process files because intermediate files exist in the output directory.")
                     return
@@ -198,24 +203,28 @@ python -m space_time_gridding
                 night_var_data = var_data[temp_aux_data[NIGHT_MASK_KEY]]
                 
                 # space grid the data using the indexes we calculated earlier
-                day_space_grid,   day_density_map,   day_max_depth   = space_gridding.space_grid_data (grid_lon_size, grid_lat_size,
-                                                                                                       day_var_data,
-                                                                                                       day_lon_index, day_lat_index)
-                night_space_grid, night_density_map, night_max_depth = space_gridding.space_grid_data (grid_lon_size, grid_lat_size,
-                                                                                                       night_var_data,
-                                                                                                       night_lon_index, night_lat_index)
+                day_space_grid,   day_density_map,   day_nobs,   day_max_depth   = space_gridding.space_grid_data (grid_lon_size, grid_lat_size,
+                                                                                                                   day_var_data,
+                                                                                                                   day_lon_index, day_lat_index)
+                night_space_grid, night_density_map, night_nobs, night_max_depth = space_gridding.space_grid_data (grid_lon_size, grid_lat_size,
+                                                                                                                   night_var_data,
+                                                                                                                   night_lon_index, night_lat_index)
                 
                 # save the space grids and density info for this variable and it's density map to files
                 
-                io_manager.save_data_to_file(variable_name + io_manager.DAY_TEMP_SUFFIX, space_grid_shape, output_path,
-                                             day_space_grid,   TEMP_DATA_TYPE )
-                io_manager.save_data_to_file(variable_name + io_manager.DAY_DENSITY_TEMP_SUFFIX, space_grid_shape, output_path,
+                io_manager.save_data_to_file(date_stamp + "_" + variable_name + io_manager.DAY_TEMP_SUFFIX,           space_grid_shape, output_path,
+                                             day_space_grid,    TEMP_DATA_TYPE )
+                io_manager.save_data_to_file(date_stamp + "_" + variable_name + io_manager.DAY_DENSITY_TEMP_SUFFIX,   space_grid_shape, output_path,
                                              day_density_map,   TEMP_DATA_TYPE)
+                io_manager.save_data_to_file(date_stamp + "_" + variable_name + io_manager.DAY_NOBS_TEMP_SUFFIX,      space_grid_shape, output_path,
+                                             day_nobs,          TEMP_DATA_TYPE)
                 
-                io_manager.save_data_to_file(variable_name + io_manager.NIGHT_TEMP_SUFFIX, space_grid_shape, output_path,
-                                             night_space_grid, TEMP_DATA_TYPE )
-                io_manager.save_data_to_file(variable_name + io_manager.NIGHT_DENSITY_TEMP_SUFFIX, space_grid_shape, output_path,
+                io_manager.save_data_to_file(date_stamp + "_" + variable_name + io_manager.NIGHT_TEMP_SUFFIX,         space_grid_shape, output_path,
+                                             night_space_grid,  TEMP_DATA_TYPE )
+                io_manager.save_data_to_file(date_stamp + "_" + variable_name + io_manager.NIGHT_DENSITY_TEMP_SUFFIX, space_grid_shape, output_path,
                                              night_density_map, TEMP_DATA_TYPE)
+                io_manager.save_data_to_file(date_stamp + "_" + variable_name + io_manager.NIGHT_NOBS_TEMP_SUFFIX,    space_grid_shape, output_path,
+                                             night_nobs,        TEMP_DATA_TYPE)
             
             # make sure each file is closed when we're done with it
             io_manager.close_file(full_file_path, file_object)
@@ -227,44 +236,104 @@ python -m space_time_gridding
             
             # load the variable's density maps
             var_workspace     = Workspace.Workspace(dir=output_path)
-            day_var_density   = var_workspace[variable_name + io_manager.DAY_DENSITY_TEMP_SUFFIX][:] 
-            night_var_density = var_workspace[variable_name + io_manager.NIGHT_DENSITY_TEMP_SUFFIX][:] 
+            day_var_density   = var_workspace[date_stamp + "_" + variable_name + io_manager.DAY_DENSITY_TEMP_SUFFIX][:] 
+            night_var_density = var_workspace[date_stamp + "_" + variable_name + io_manager.NIGHT_DENSITY_TEMP_SUFFIX][:] 
+            
+            # set up nobs arrays to accumulate into
+            day_nobs_total    = numpy.zeros(space_grid_shape, dtype=TEMP_DATA_TYPE)
+            night_nobs_total  = numpy.zeros(space_grid_shape, dtype=TEMP_DATA_TYPE)
             
             # only do the day data if we have some
             if numpy.sum(day_var_density) > 0 :
                 
                 # load the sparse space grid
-                day_var_data      = var_workspace[variable_name + io_manager.DAY_TEMP_SUFFIX][:]
+                day_var_data      = var_workspace[date_stamp + "_" + variable_name + io_manager.DAY_TEMP_SUFFIX][:]
                 
                 # collapse the space grid
                 final_day_data    = space_gridding.pack_space_grid(day_var_data,   day_var_density)
                 
                 # save the final array to an appropriately named file
-                io_manager.save_data_to_file(variable_name + io_manager.DAY_SUFFIX,   space_grid_shape, output_path,
+                io_manager.save_data_to_file(date_stamp + "_" + variable_name + io_manager.DAY_SUFFIX,   space_grid_shape, output_path,
                                              final_day_data,   TEMP_DATA_TYPE, file_permissions="w")
                 
+                # load the nobs file
+                nobs_counts       = var_workspace[date_stamp + "_" + variable_name + io_manager.DAY_NOBS_TEMP_SUFFIX][:]
+                
+                # collapse the nobs
+                nobs_final        = numpy.sum(nobs_counts, axis=0)
+                
+                # save the final nobs array to an appropriately named file
+                io_manager.save_data_to_file(date_stamp + "_" + variable_name + io_manager.DAY_NOBS_SUFFIX, space_grid_shape, output_path,
+                                             nobs_final, TEMP_DATA_TYPE, file_permissions="w")
+                
             else :
-                LOG.warn("No day data was found for variable " + variable_name + ". Day file will not be written.")
+                LOG.warn("No day data was found for variable " + variable_name + ". Day files will not be written.")
             
             # only do night data if we have some
             if numpy.sum(night_var_density) > 0 :
                 
                 # load the sparse space grid
-                night_var_data    = var_workspace[variable_name + io_manager.NIGHT_TEMP_SUFFIX][:]
+                night_var_data    = var_workspace[date_stamp + "_" + variable_name + io_manager.NIGHT_TEMP_SUFFIX][:]
                 
                 # collapse the space grid
                 final_night_data  = space_gridding.pack_space_grid(night_var_data, night_var_density)
                 
                 # save the final array to an appropriately named file
-                io_manager.save_data_to_file(variable_name + io_manager.NIGHT_SUFFIX, space_grid_shape, output_path,
+                io_manager.save_data_to_file(date_stamp + "_" + variable_name + io_manager.NIGHT_SUFFIX, space_grid_shape, output_path,
                                              final_night_data, TEMP_DATA_TYPE, file_permissions="w")
                 
+                # load the nobs file
+                nobs_counts       = var_workspace[date_stamp + "_" + variable_name + io_manager.NIGHT_NOBS_TEMP_SUFFIX][:]
+                
+                # collapse the nobs
+                nobs_final        = numpy.sum(nobs_counts, axis=0)
+                
+                # save the final nobs array to an appropriately named file
+                io_manager.save_data_to_file(date_stamp + "_" + variable_name + io_manager.NIGHT_NOBS_SUFFIX, space_grid_shape, output_path,
+                                             nobs_final, TEMP_DATA_TYPE, file_permissions="w")
+                
             else :
-                LOG.warn("No night data was found for variable " + variable_name + ". Night file will not be written.")
+                LOG.warn("No night data was found for variable " + variable_name + ". Night files will not be written.")
         
         # remove the extra temporary files in the output directory
         remove_suffixes = ["*" + p + "*" for p in io_manager.EXPECTED_TEMP_SUFFIXES]
         remove_file_patterns(output_path, remove_suffixes)
+    
+    def stats_day(*args):
+        """given files of daily space gridded data, calculate daily stats
+        given an input directory that contains appropriate files,
+        calculate daily stats and put the resulting gridded files
+        for that day in the output directory.
+        
+        Note: the output directory will also be used for intermediary working
+        files.
+        """
+        
+        # set up some of our input from the caller for easy access
+        desired_variables = list(args) if len(args) > 0 else [ ]
+        input_path        = options.inputPath
+        output_path       = options.outputPath
+        min_scan_angle    = options.minScanAngle
+        grid_degrees      = float(options.gridDegrees)
+    
+    def stats_month(*args):
+        """given a month of daily space gridded data, calculate montly stats
+        given an input directory that contains appropriate files,
+        calculate monthly stats and put the resulting gridded files
+        for that month in the output directory.
+        
+        Note: the output directory will also be used for intermediary working
+        files.
+        """
+        
+        # set up some of our input from the caller for easy access
+        desired_variables = list(args) if len(args) > 0 else [ ]
+        input_path        = options.inputPath
+        output_path       = options.outputPath
+        min_scan_angle    = options.minScanAngle
+        grid_degrees      = float(options.gridDegrees)
+        
+    
     
     # all the local public functions are considered part of the application, collect them up
     commands.update(dict(x for x in locals().items() if x[0] not in prior))    

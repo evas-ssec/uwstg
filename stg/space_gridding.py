@@ -43,28 +43,39 @@ def space_grid_data (grid_lon_size, grid_lat_size, data, lon_indexes, lat_indexe
     returns the filled space grid (empty space is NaN values), a density map of where the data is, and the size of the deepest bucket
     """
     
+    if data.size > 0 :
+        print ("data range: " + str(data.min()) + " " + str(data.max()))
+    
     space_grid_shape = (grid_lon_size, grid_lat_size) # TODO, is this the correct order?
     
     # create the density map and figure out how dense the data will be
     # FUTURE, I do not like this looping solution, figure out how to do this in native numpy ops
     density_map = numpy.zeros(space_grid_shape)
+    nobs_map    = numpy.zeros(space_grid_shape)
     for index in range(len(data)) :
+        nobs_map[lon_indexes[index], lat_indexes[index]] += 1
         if not numpy.isnan(data[index]) :
             density_map[lon_indexes[index], lat_indexes[index]] += 1
     max_depth = numpy.max(density_map)
     
+    print ("max depth: " + str(max_depth))
+    
     # create the space grids for this variable
-    space_grid = numpy.ones((grid_lon_size, grid_lat_size, max_depth), dtype=numpy.float32) * numpy.nan #TODO, dtype
+    space_grid = numpy.ones((max_depth, grid_lon_size, grid_lat_size), dtype=numpy.float32) * numpy.nan #TODO, dtype
     temp_depth = numpy.zeros(space_grid_shape)
     
     # put the variable data into the space grid
     # FUTURE, I do not like this looping solution, figure out how to do this in native numpy ops
     for index in range(len(data)) :
         if not numpy.isnan(data[index]) :
-            space_grid[lon_indexes[index], lat_indexes[index], temp_depth[lon_indexes[index], lat_indexes[index]]] = data[index]
-            temp_depth[lon_indexes[index], lat_indexes[index]] += 1
+            depth = temp_depth[lon_indexes[index], lat_indexes[index]]
+            space_grid[depth,  lon_indexes[index], lat_indexes[index]] = data[index]
+            temp_depth[        lon_indexes[index], lat_indexes[index]] += 1
     
-    return space_grid, density_map, max_depth
+    if space_grid.size > 0 :
+        print ("grid range: "), numpy.nanmin(space_grid), numpy.nanmax(space_grid)
+    
+    return space_grid, density_map, nobs_map, max_depth
 
 def pack_space_grid (data_array, density_array) :
     """

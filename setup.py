@@ -25,7 +25,7 @@ from setuptools import setup, find_packages
 setup( name="spacetimegrid", 
        version="0.1", 
        zip_safe = True,
-       entry_points = { 'console_scripts': [ 'stg = stg.space_time_gridding:main' ] },
+       entry_points = { 'console_scripts': [ 'stg = stg.space_time_gridding:main', 'stg_plot = stg.plot_tools:main' ] },
        packages = ['stg'], #find_packages('.'),
        install_requires=[ 'numpy', 'scipy' ],
        #package_data = {'': ['*.txt', '*.gif']}

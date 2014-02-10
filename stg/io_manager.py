@@ -55,6 +55,9 @@ ALL_EXPECTED_SUFFIXES     = [DAY_TEMP_SUFFIX,         NIGHT_TEMP_SUFFIX,
                              DAY_SUFFIX,              NIGHT_SUFFIX,
                              DAY_NOBS_SUFFIX,         NIGHT_NOBS_SUFFIX]
 
+# the strftime format for date stamping our files
+DATE_STAMP_FORMAT         = "%Y%m%d"
+
 def open_file (file_path) :
     """
     given a file path that is a modis file, open it
@@ -117,6 +120,34 @@ def save_data_to_file (stem_name, grid_shape, output_path, data_array, data_type
     temp_file_obj = open(temp_path, 'a')
     data_array.astype(data_type).tofile(temp_file_obj)
     temp_file_obj.close()
+
+def build_name_stem (variable_name, date_time=None, satellite=None, algorithm=None, suffix=None) :
+    """given information on what's in the file, build a file stem
+    if there's extra info like the date time, satellite, algorithm name, or a suffix
+    include that in the file stem as well
+    
+    the name format is:
+            satellite_algorithm_datestamp_variablename_suffix
+    """
+    
+    # the basic stem name is just the variable
+    stem_name = variable_name
+    
+    # if we have a date time, add a time stamp at the beginning
+    stem_name = date_time.strftime(DATE_STAMP_FORMAT) + "_" + stem_name if date_time is not None else stem_name
+    
+    # if we have an algorithm prefix add that
+    stem_name = algorithm + "_" + stem_name if algorithm is not None else stem_name
+    
+    # if we have a satellite, add that to the beginning
+    stem_name = satellite + "_" + stem_name if satellite is not None else stem_name
+    
+    # if we have a suffix, add that too
+    stem_name = stem_name + suffix if suffix is not None else stem_name
+    
+    return stem_name
+    
+    # date_stamp + "_" + var_name + suffix
 
 def main():
     import optparse

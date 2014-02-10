@@ -69,7 +69,7 @@ def load_aux_data (file_path, minimum_scan_angle, file_object=None) :
     scan_angle_data_temp = satellite_zenith_angle_to_scan_angle(sat_zenith_data_temp)
     
     # build the day and night masks
-    ok_scan_angle                 = scan_angle_data_temp <= minimum_scan_angle
+    ok_scan_angle                 =  scan_angle_data_temp   <= minimum_scan_angle
     aux_data_sets[DAY_MASK_KEY]   = (solar_zenith_data_temp <  DAY_NIGHT_LINE_DEGREES) & ok_scan_angle
     aux_data_sets[NIGHT_MASK_KEY] = (solar_zenith_data_temp >= DAY_NIGHT_LINE_DEGREES) & ok_scan_angle
     
@@ -98,15 +98,14 @@ def load_variable_from_file (variable_name, file_path=None, file_object=None,
     # defaults
     scale_factor = 1.0
     add_offset = 0.0
-    data_type = None 
-    scaling_method = None
+    data_type = None
     
     # get the variable object and use it to
     # get our raw data and scaling info
     variable_object = file_object.select(variable_name)
-    raw_data_copy = variable_object[:]
-    raw_data_copy = raw_data_copy.astype(data_type_for_output) if data_type_for_output is not None else raw_data_copy
-    temp_attrs    = variable_object.attributes()
+    raw_data_copy   = variable_object[:]
+    raw_data_copy   = raw_data_copy.astype(data_type_for_output) if data_type_for_output is not None else raw_data_copy
+    temp_attrs      = variable_object.attributes()
     try :
         scale_factor, scale_factor_error, add_offset, add_offset_error, data_type = SDS.getcal(variable_object)
     except HDF4Error:
@@ -144,8 +143,7 @@ def load_variable_from_file (variable_name, file_path=None, file_object=None,
     return file_object, scaled_data_copy 
 
 def unscale_data (data, fill_mask=None, scale_factor=None, offset=None) :
-    """
-    unscale the given data
+    """unscale the given data
     
     data is modified in place and fill values will not be changed
     if a scale factor or offset is given as None (or not given) it will not be applied

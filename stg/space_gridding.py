@@ -28,11 +28,14 @@ def calculate_index_from_nav_data (aux_data, grid_degrees) :
     where the elements will be space gridded 
     """
     
+    night_lon_temp = aux_data[LON_KEY][aux_data[NIGHT_MASK_KEY]]
+    night_lat_temp = aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]]
+    
     # figure out where the day/night indexes will fall
-    day_lon_index   = numpy.round((aux_data[LON_KEY][aux_data[DAY_MASK_KEY]]   +  90.0) / grid_degrees)
-    day_lat_index   = numpy.round((aux_data[LAT_KEY][aux_data[DAY_MASK_KEY]]   + 180.0) / grid_degrees)
-    night_lon_index = numpy.round((aux_data[LON_KEY][aux_data[NIGHT_MASK_KEY]] +  90.0) / grid_degrees)
-    night_lat_index = numpy.round((aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]] + 180.0) / grid_degrees)
+    day_lon_index   = numpy.round((aux_data[LON_KEY][aux_data[DAY_MASK_KEY]]   + 180.0) / grid_degrees)
+    day_lat_index   = numpy.round((aux_data[LAT_KEY][aux_data[DAY_MASK_KEY]]   +  90.0) / grid_degrees)
+    night_lon_index = numpy.round((aux_data[LON_KEY][aux_data[NIGHT_MASK_KEY]] + 180.0) / grid_degrees)
+    night_lat_index = numpy.round((aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]] +  90.0) / grid_degrees)
     
     return day_lon_index, day_lat_index, night_lon_index, night_lat_index
 
@@ -52,9 +55,9 @@ def space_grid_data (grid_lon_size, grid_lat_size, data, lon_indexes, lat_indexe
     # FUTURE, I do not like this looping solution, figure out how to do this in native numpy ops
     density_map = numpy.zeros(space_grid_shape)
     nobs_map    = numpy.zeros(space_grid_shape)
-    for index in range(len(data)) :
+    for index in range(data.size) :
         nobs_map[lon_indexes[index], lat_indexes[index]] += 1
-        if not numpy.isnan(data[index]) :
+        if numpy.isfinite(data[index]) :
             density_map[lon_indexes[index], lat_indexes[index]] += 1
     max_depth = numpy.max(density_map)
     
@@ -66,8 +69,8 @@ def space_grid_data (grid_lon_size, grid_lat_size, data, lon_indexes, lat_indexe
     
     # put the variable data into the space grid
     # FUTURE, I do not like this looping solution, figure out how to do this in native numpy ops
-    for index in range(len(data)) :
-        if not numpy.isnan(data[index]) :
+    for index in range(data.size) :
+        if numpy.isfinite(data[index]) :
             depth = temp_depth[lon_indexes[index], lat_indexes[index]]
             space_grid[depth,  lon_indexes[index], lat_indexes[index]] = data[index]
             temp_depth[        lon_indexes[index], lat_indexes[index]] += 1
@@ -89,8 +92,7 @@ def pack_space_grid (data_array, density_array) :
     max_depth = numpy.max(numpy.sum(density_array, axis=0))
     
     # create the final data array at the right depth
-    final_data = numpy.ones((max_depth, data_array.shape[1], data_array.shape[2]), dtype=data_array.dtype)
-    final_data = final_data * numpy.nan
+    final_data = numpy.ones((max_depth, data_array.shape[1], data_array.shape[2]), dtype=data_array.dtype) * numpy.nan
     
     LOG.debug("  original data shape: " + str(data_array.shape))
     LOG.debug("  final data shape:    " + str(final_data.shape))

@@ -37,9 +37,6 @@ DEFAULT_LAT_RANGE    = [ -90,  90]
 DEFAULT_RANGE_OFFSET = 0.00000000000000000000001
 DEFAULT_AXIS         = [-180, 180, -90, 90]
 
-EXP_MAX_LON_INDEX    = 360
-EXP_MAX_LAT_INDEX    = 180
-
 def plot_mapped(data, baseMapInstance, title,
                 vmin=None, vmax=None,
                 boundingAxis=DEFAULT_AXIS,
@@ -50,18 +47,22 @@ def plot_mapped(data, baseMapInstance, title,
     temp_mask = None
     if not data is None :
         # TODO, there's probably a better way to show 3D data
-        data = numpy.nansum(data, axis=0) if len(data.shape) > 2 else data
+        if len(data.shape) > 2 :
+            # calculate a rough mean
+            data = numpy.nansum(data, axis=0) / numpy.sum(numpy.isfinite(data), axis=0)
+            #data = data[0]
         
         temp_mask = numpy.isnan(data) if fillValue is numpy.nan else data == fillValue
         data      = numpy.ma.masked_where(temp_mask, data)
     
     # build our lon/lat from the data shape
-    lon_row  = numpy.linspace(DEFAULT_LON_RANGE[0], DEFAULT_LON_RANGE[1], data.shape[1])
-    lon_data = numpy.tile(lon_row, (data.shape[0], 1))
+    lon_row  = numpy.linspace(DEFAULT_LON_RANGE[0], DEFAULT_LON_RANGE[1], data.shape[0])
+    lon_data = numpy.tile(lon_row, (data.shape[1], 1))
+    lon_data = numpy.transpose(lon_data)
     
-    lat_row  = numpy.linspace(DEFAULT_LAT_RANGE[0], DEFAULT_LAT_RANGE[1], data.shape[0])
-    lat_data = numpy.tile(lat_row, (data.shape[1], 1))
-    lat_data = numpy.transpose(lat_data)
+    lat_row  = numpy.linspace(DEFAULT_LAT_RANGE[0], DEFAULT_LAT_RANGE[1], data.shape[1])
+    lat_data = numpy.tile(lat_row, (data.shape[0], 1))
+    #lat_data = numpy.transpose(lat_data)
     
     # build the plot
     figure = plt.figure()

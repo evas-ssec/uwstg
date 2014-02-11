@@ -23,10 +23,19 @@ Copyright (C) 2014 Space Science and Engineering Center (SSEC),
 __docformat__ = "restructuredtext en"
 
 
-
+SAT_NOAA_14     = 'noaa-14'
+SAT_NOAA_15     = 'noaa-14'
+SAT_NOAA_16     = 'noaa-14'
+SAT_NOAA_17     = 'noaa-14'
+SAT_NOAA_18     = 'noaa-14'
+SAT_NOAA_19     = 'noaa-14'
+SAT_METOP_A     = 'metop-a'
+SAT_METOP_B     = 'metop-b'
 SAT_AQUA        = "aqua"
 SAT_TERRA       = "terra"
 
+INST_AVHRR      = 'avhrr'
+INST_HIRS       = 'hirs'
 INST_MODIS      = "modis"
 
 LON_KEY         = "longitude"

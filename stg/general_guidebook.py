@@ -20,6 +20,7 @@ import sys
 import logging
 
 import stg.modis_guidebook as modis_guidebook
+import stg.ctp_guidebook as ctp_guidebook
 
 LOG = logging.getLogger(__name__)
 
@@ -35,6 +36,9 @@ def parse_datetime_from_filename (file_name_string) :
     if modis_guidebook.is_MODIS_file(file_name_string) :
         datetime_to_return = modis_guidebook.parse_datetime_from_filename(file_name_string)
     
+    if ctp_guidebook.is_CTP_file(file_name_string) :
+        datetime_to_return = ctp_guidebook.parse_datetime_from_filename(file_name_string)
+
     return datetime_to_return
 
 def get_satellite_from_filename (file_name_string) :
@@ -49,6 +53,9 @@ def get_satellite_from_filename (file_name_string) :
     if   modis_guidebook.is_MODIS_file(file_name_string) :
         satellite_to_return, instrument_to_return = modis_guidebook.get_satellite_from_filename(file_name_string)
     
+    if   ctp_guidebook.is_CTP_file(file_name_string) :
+        satellite_to_return, instrument_to_return = ctp_guidebook.get_satellite_from_filename(file_name_string)
+
     return satellite_to_return, instrument_to_return
 
 def get_variable_names (file_name_string, user_requested_names=[ ]) :
@@ -60,6 +67,9 @@ def get_variable_names (file_name_string, user_requested_names=[ ]) :
     if modis_guidebook.is_MODIS_file(file_name_string) :
         var_names.update(modis_guidebook.get_variable_names(user_requested_names))
     
+    if ctp_guidebook.is_CTP_file(file_name_string) :
+        var_names.update(ctp_guidebook.get_variable_names(user_requested_names))
+
     return var_names
 
 def main():

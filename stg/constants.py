@@ -24,11 +24,11 @@ __docformat__ = "restructuredtext en"
 
 
 SAT_NOAA_14     = 'noaa-14'
-SAT_NOAA_15     = 'noaa-14'
-SAT_NOAA_16     = 'noaa-14'
-SAT_NOAA_17     = 'noaa-14'
-SAT_NOAA_18     = 'noaa-14'
-SAT_NOAA_19     = 'noaa-14'
+SAT_NOAA_15     = 'noaa-15'
+SAT_NOAA_16     = 'noaa-16'
+SAT_NOAA_17     = 'noaa-17'
+SAT_NOAA_18     = 'noaa-18'
+SAT_NOAA_19     = 'noaa-19'
 SAT_METOP_A     = 'metop-a'
 SAT_METOP_B     = 'metop-b'
 SAT_AQUA        = "aqua"

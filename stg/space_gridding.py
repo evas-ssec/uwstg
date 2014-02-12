@@ -36,7 +36,13 @@ def calculate_index_from_nav_data (aux_data, grid_degrees) :
     day_lat_index   = numpy.round((aux_data[LAT_KEY][aux_data[DAY_MASK_KEY]]   +  90.0) / grid_degrees)
     night_lon_index = numpy.round((aux_data[LON_KEY][aux_data[NIGHT_MASK_KEY]] + 180.0) / grid_degrees)
     night_lat_index = numpy.round((aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]] +  90.0) / grid_degrees)
-    
+
+    # wrap geo indices to valid range; -180 == 180 syndrome gives us one too many indices
+    day_lon_index = day_lon_index % (360.0 / grid_degrees)
+    day_lat_index = day_lat_index % (180.0 / grid_degrees)
+    night_lon_index = night_lon_index % (360.0 / grid_degrees)
+    night_lat_index = night_lat_index % (180.0 / grid_degrees)
+
     return day_lon_index, day_lat_index, night_lon_index, night_lat_index
 
 def space_grid_data (grid_lon_size, grid_lat_size, data, lon_indexes, lat_indexes ) :

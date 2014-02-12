@@ -106,10 +106,16 @@ def load_variable_from_file (variable_name, file_path=None, file_object=None,
 
     data = file_object[variable_name]
 
-# FIXME: everything appears to have negative fill values (aside from lat/lon), verify with RichF
-    if variable_name not in [ctp_guidebook.LONGITUDE_NAME, ctp_guidebook.LATITUDE_NAME]:
-      fill_mask = (data < 0)
-      data[fill_mask] = numpy.nan
+    # Mask off fill values fill values
+    if variable_name in ctp_guidebook.FILL_VALUES:
+      fill_value = ctp_guidebook.FILL_VALUES[variable_name]
+      data[data == fill_value] = numpy.nan
+
+    # Mask off anything outside the valid range
+    if variable_name in ctp_guidebook.VALID_RANGES:
+      valid_range = ctp_guidebook.VALID_RANGES[variable_name]
+      data[data < valid_range[0]] = numpy.nan
+      data[data > valid_range[1]] = numpy.nan
 
     data_to_return = data.astype(data_type_for_output) if data_type_for_output is not None else data
     return file_object, data

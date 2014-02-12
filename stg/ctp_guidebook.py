@@ -83,8 +83,29 @@ EXPECTED_VARIABLES_IN_FILE = set([LATITUDE_NAME              ,
                                   CLOUD_FRACTION_NAME        , 
                                   LAND_FRACTION_NAME         , 
                                   RESULTS_FLAG_NAME          , 
-                                  UTLS_FLAG_NAME             ,]) 
- 
+                                  UTLS_FLAG_NAME             ,])
+
+VALID_RANGES = {
+                  LATITUDE_NAME               :[-90.0, 90.0],
+                  LONGITUDE_NAME              :[-180.0, 180.0],
+                  DAY_NIGHT_FLAG_NAME         :[1, 2],
+                  DIRECTION_FLAG_NAME         :[1, 2],
+                  VIEWING_ZENITH_NAME         :[0, 90],
+                  SCAN_LINE_TIME_NAME         :[0, 86400000],
+                  CLOUD_FRACTION_NAME         :[0, 1],
+                  LAND_FRACTION_NAME          :[0, 1],
+                  RESULTS_FLAG_NAME           :[0, 3],
+                  UTLS_FLAG_NAME              :[0, 2],
+}
+
+FILL_VALUES = {
+                  CLOUD_TOP_PRESS_NAME        : -99.9,
+                  CLOUD_TOP_HEIGHT_NAME       : -99.9,
+                  CLOUD_TOP_TEMP_NAME         : -99.9,
+                  EFFECTIVE_CLOUD_AMOUNT_NAME : -99.9,
+                  METHOD_FLAG_NAME            : -99,
+}
+
 
 # TODO, move this up to the general_guidebook
 def _clean_off_path_if_needed(file_name_string) :

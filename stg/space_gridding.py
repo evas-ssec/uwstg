@@ -19,6 +19,7 @@ import numpy
 import logging
 
 from stg.constants import *
+from stg.stg_util  import make_index_grid
 
 LOG = logging.getLogger(__name__)
 
@@ -32,10 +33,10 @@ def calculate_index_from_nav_data (aux_data, grid_degrees) :
     night_lat_temp = aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]]
     
     # figure out where the day/night indexes will fall
-    day_lon_index   = numpy.round((aux_data[LON_KEY][aux_data[DAY_MASK_KEY]]   + 180.0) / grid_degrees)
-    day_lat_index   = numpy.round((aux_data[LAT_KEY][aux_data[DAY_MASK_KEY]]   +  90.0) / grid_degrees)
-    night_lon_index = numpy.round((aux_data[LON_KEY][aux_data[NIGHT_MASK_KEY]] + 180.0) / grid_degrees)
-    night_lat_index = numpy.round((aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]] +  90.0) / grid_degrees)
+    day_lon_index   = numpy.round((aux_data[LON_KEY][aux_data[DAY_MASK_KEY]]   + 180.0) / grid_degrees) % 360
+    day_lat_index   = numpy.round((aux_data[LAT_KEY][aux_data[DAY_MASK_KEY]]   +  90.0) / grid_degrees) % 180
+    night_lon_index = numpy.round((aux_data[LON_KEY][aux_data[NIGHT_MASK_KEY]] + 180.0) / grid_degrees) % 360
+    night_lat_index = numpy.round((aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]] +  90.0) / grid_degrees) % 180
     
     return day_lon_index, day_lat_index, night_lon_index, night_lat_index
 
@@ -46,8 +47,8 @@ def space_grid_data (grid_lon_size, grid_lat_size, data, lon_indexes, lat_indexe
     returns the filled space grid (empty space is NaN values), a density map of where the data is, and the size of the deepest bucket
     """
     
-    if data.size > 0 :
-        print ("data range: " + str(data.min()) + " " + str(data.max()))
+    #if data.size > 0 :
+    #    print ("data range: " + str(data.min()) + " " + str(data.max()))
     
     space_grid_shape = (grid_lon_size, grid_lat_size) # TODO, is this the correct order?
     
@@ -61,7 +62,7 @@ def space_grid_data (grid_lon_size, grid_lat_size, data, lon_indexes, lat_indexe
             density_map[lon_indexes[index], lat_indexes[index]] += 1
     max_depth = numpy.max(density_map)
     
-    print ("max depth: " + str(max_depth))
+    #print ("max depth: " + str(max_depth))
     
     # create the space grids for this variable
     space_grid = numpy.ones((max_depth, grid_lon_size, grid_lat_size), dtype=numpy.float32) * numpy.nan #TODO, dtype
@@ -75,8 +76,8 @@ def space_grid_data (grid_lon_size, grid_lat_size, data, lon_indexes, lat_indexe
             space_grid[depth,  lon_indexes[index], lat_indexes[index]] = data[index]
             temp_depth[        lon_indexes[index], lat_indexes[index]] += 1
     
-    if space_grid.size > 0 :
-        print ("grid range: "), numpy.nanmin(space_grid), numpy.nanmax(space_grid)
+    #if space_grid.size > 0 :
+    #    print ("grid range: "), numpy.nanmin(space_grid), numpy.nanmax(space_grid)
     
     return space_grid, density_map, nobs_map, max_depth
 
@@ -92,23 +93,31 @@ def pack_space_grid (data_array, density_array) :
     max_depth = numpy.max(numpy.sum(density_array, axis=0))
     
     # create the final data array at the right depth
-    final_data = numpy.ones((max_depth, data_array.shape[1], data_array.shape[2]), dtype=data_array.dtype) * numpy.nan
+    final_data = numpy.ones((max_depth + 1, data_array.shape[1], data_array.shape[2]), dtype=data_array.dtype) * numpy.nan
     
     LOG.debug("  original data shape: " + str(data_array.shape))
     LOG.debug("  final data shape:    " + str(final_data.shape))
     
-    # sort the sparse data into the final array
-    # FUTURE, find a way to do this without loops
-    for rows in range(data_array.shape[1]) :
-        for cols in range(data_array.shape[2]) :
-            
-            # pull the data for this element
-            temp_data = data_array[:, rows, cols]
-            temp      = temp_data[numpy.isfinite(temp_data)]
-            
-            # put the data for this element into the final array
-            final_data[0:temp.size, rows, cols] = temp
+    lat_data, lon_data = make_index_grid(data_array.shape[1:3])
     
-    return final_data
+    temp_index = numpy.zeros((data_array.shape[1], data_array.shape[2]), dtype=numpy.int)
+    for depth in range(data_array.shape[0]) :
+        
+        this_slice = data_array[depth]
+        valid_mask = numpy.isfinite(this_slice)
+        
+        """
+        final_data[temp_index, lat_data, lon_data] = this_slice
+        
+        """
+        for row in range(this_slice.shape[0]) :
+            for col in range(this_slice.shape[1]) :
+                if valid_mask[row, col] :
+                    final_data[temp_index[row, col], row, col] = this_slice[row, col]
+        
+        
+        temp_index += valid_mask
+    
+    return final_data[0:-1]
 
 

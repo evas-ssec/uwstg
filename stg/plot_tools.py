@@ -25,6 +25,8 @@ matplotlib.use('agg')
 from matplotlib import pyplot as plt
 import matplotlib.cm          as cm
 
+from stg.stg_util import make_lat_lon_grids
+
 import keoni.fbf.workspace as Workspace
 from mpl_toolkits.basemap import Basemap
 
@@ -55,14 +57,7 @@ def plot_mapped(data, baseMapInstance, title,
         temp_mask = numpy.isnan(data) if fillValue is numpy.nan else data == fillValue
         data      = numpy.ma.masked_where(temp_mask, data)
     
-    # build our lon/lat from the data shape
-    lon_row  = numpy.linspace(DEFAULT_LON_RANGE[0], DEFAULT_LON_RANGE[1], data.shape[0])
-    lon_data = numpy.tile(lon_row, (data.shape[1], 1))
-    lon_data = numpy.transpose(lon_data)
-    
-    lat_row  = numpy.linspace(DEFAULT_LAT_RANGE[0], DEFAULT_LAT_RANGE[1], data.shape[1])
-    lat_data = numpy.tile(lat_row, (data.shape[0], 1))
-    #lat_data = numpy.transpose(lat_data)
+    lat_data, lon_data = make_lat_lon_grids((data.shape[1], data.shape[0]))
     
     # build the plot
     figure = plt.figure()

@@ -117,7 +117,7 @@ def save_data_to_file (stem_name, grid_shape, output_path, data_array, data_type
     
     temp_file = fbf.filename(stem_name, data_type, shape=grid_shape)
     temp_path = os.path.join(output_path, temp_file)
-    temp_file_obj = open(temp_path, 'a')
+    temp_file_obj = open(temp_path, file_permissions)
     data_array.astype(data_type).tofile(temp_file_obj)
     temp_file_obj.close()
 

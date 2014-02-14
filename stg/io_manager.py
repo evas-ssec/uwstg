@@ -22,8 +22,12 @@ import os
 import numpy
 
 import stg.general_guidebook as general_guidebook
+
 import stg.modis_guidebook   as modis_guidebook
 import stg.modis_io          as modis_io
+
+import stg.ctp_guidebook as ctp_guidebook
+import stg.ctp_io        as ctp_io
 
 import keoni.fbf as fbf
 
@@ -67,7 +71,10 @@ def open_file (file_path) :
     
     if modis_guidebook.is_MODIS_file(file_path) :
         file_object = modis_io.open_file(file_path)
-    
+
+    if ctp_guidebook.is_CTP_file(file_path):
+        file_object = ctp_io.open_file(file_path)
+
     return file_object
 
 def close_file (file_path, file_object) :
@@ -77,6 +84,9 @@ def close_file (file_path, file_object) :
     
     if modis_guidebook.is_MODIS_file(file_path) :
         modis_io.close_file(file_object)
+
+    if ctp_guidebook.is_CTP_file(file_path):
+        ctp_io.close_file(file_object)
 
 def load_aux_data (file_path, minimum_scan_angle, file_object=None) :
     """
@@ -88,7 +98,12 @@ def load_aux_data (file_path, minimum_scan_angle, file_object=None) :
         file_object, temp_aux_data = modis_io.load_aux_data(file_path,
                                                             minimum_scan_angle,
                                                             file_object=file_object)
-    
+
+    if ctp_guidebook.is_CTP_file(file_path):
+        file_object, temp_aux_data = ctp_io.load_aux_data(file_path,
+                                                            minimum_scan_angle,
+                                                            file_object=file_object)
+
     return file_object, temp_aux_data
 
 def load_variable_from_file (variable_name, file_path=None, file_object=None,
@@ -105,6 +120,12 @@ def load_variable_from_file (variable_name, file_path=None, file_object=None,
                                                                    file_object=file_object,
                                                                    data_type_for_output=data_type_for_output)
     
+    if ctp_guidebook.is_CTP_file(file_path) :
+        file_object, temp_data = ctp_io.load_variable_from_file (variable_name,
+                                                                   file_path=file_path,
+                                                                   file_object=file_object,
+                                                                   data_type_for_output=data_type_for_output)
+
     return file_object, temp_data
 
 def save_data_to_file (stem_name, grid_shape, output_path, data_array, data_type, file_permissions="a") :

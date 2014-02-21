@@ -72,6 +72,18 @@ def get_variable_names (file_name_string, user_requested_names=[ ]) :
 
     return var_names
 
+def get_expected_files_per_day (file_name_string) :
+    """given a file name, determine the expected number of files per day for that instrument
+    """
+    
+    number_to_return = None
+    
+    if modis_guidebook.is_MODIS_file(file_name_string) :
+        number_to_return = modis_guidebook.EXPECTED_FILES_PER_DAY
+    # FUTURE, needs a statment for ctp
+    
+    return number_to_return
+
 def main():
     import optparse
     from pprint import pprint

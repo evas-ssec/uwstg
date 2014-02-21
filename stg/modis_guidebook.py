@@ -25,6 +25,9 @@ from datetime import datetime
 
 LOG = logging.getLogger(__name__)
 
+# the expected number of files per day if nothing goes wrong
+EXPECTED_FILES_PER_DAY      = 288
+
 # variable names expected in the files
 CLOUD_PHASE_NAME            = 'Cloud_Phase_Infrared'
 CLOUD_TOP_TEMP_NAME         = 'Cloud_Top_Temperature'

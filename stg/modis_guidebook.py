@@ -59,6 +59,9 @@ BRIGHTNESS_TEMP_NAME        = 'Brightness_Temperature'
 """
 CLOUD_EFF_RADIUS_NAME       = ('Effective_Particle_Radius', 'Cloud_Effective_Radius')
 
+# a list of our navigation variables
+NAVIGATION_VAR_NAMES        = [LONGITUDE_NAME, LATITUDE_NAME, SOLAR_ZENITH_NAME, SENSOR_ZENITH_NAME]
+
 # important attribute names
 SCALE_ATTR_NAME             = 'scale_factor'
 ADD_OFFSET_ATTR_NAME        = 'add_offset'

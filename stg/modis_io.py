@@ -80,7 +80,8 @@ def load_variable_from_file (variable_name, file_path=None, file_object=None,
                              fill_value_name=modis_guidebook.FILL_VALUE_ATTR_NAME,
                              scale_name=modis_guidebook.SCALE_ATTR_NAME,
                              offset_name=modis_guidebook.ADD_OFFSET_ATTR_NAME,
-                             data_type_for_output=numpy.float32) :
+                             data_type_for_output=numpy.float32,
+                             zero_cutoff_exceptions=modis_guidebook.NAVIGATION_VAR_NAMES) :
     """
     load a given variable from a file path or file object
     """
@@ -124,6 +125,11 @@ def load_variable_from_file (variable_name, file_path=None, file_object=None,
     if fill_value is not numpy.nan :
         raw_data_copy[fill_mask] = numpy.nan
         fill_value = numpy.nan
+    
+    # if appropriate, also cutoff any data that is less than zero
+    if variable_name not in zero_cutoff_exceptions :
+        negative_mask = raw_data_copy < 0 # note numpy.nan tests as less than zero too, but that's fine here
+        raw_data_copy[negative_mask] = numpy.nan
     
     # we got all the info we need about that file
     SDS.endaccess(variable_object)

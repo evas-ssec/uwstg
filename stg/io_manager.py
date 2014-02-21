@@ -34,21 +34,11 @@ import keoni.fbf as fbf
 LOG = logging.getLogger(__name__)
 
 # these are suffixes used for temporary files
-DAY_TEMP_SUFFIX           = "_daytemp"
-NIGHT_TEMP_SUFFIX         = "_nighttemp"
-DAY_DENSITY_TEMP_SUFFIX   = "_daydensitytemp"
-NIGHT_DENSITY_TEMP_SUFFIX = "_nightdensitytemp"
-DAY_NOBS_TEMP_SUFFIX      = "_daynobstemp"
-NIGHT_NOBS_TEMP_SUFFIX    = "_nightnobstemp"
 EXPECTED_TEMP_SUFFIXES    = [DAY_TEMP_SUFFIX,         NIGHT_TEMP_SUFFIX,
                              DAY_DENSITY_TEMP_SUFFIX, NIGHT_DENSITY_TEMP_SUFFIX,
                              DAY_NOBS_TEMP_SUFFIX,    NIGHT_NOBS_TEMP_SUFFIX]
 
 # these are suffixes used for the final, packed files
-DAY_SUFFIX                = "_dayfinal"
-NIGHT_SUFFIX              = "_nightfinal"
-DAY_NOBS_SUFFIX           = "_daynobsfinal"
-NIGHT_NOBS_SUFFIX         = "_nightnobsfinal"
 EXPECTED_FINAL_SUFFIXES   = [DAY_SUFFIX,      NIGHT_SUFFIX,
                              DAY_NOBS_SUFFIX, NIGHT_NOBS_SUFFIX]
 
@@ -105,6 +95,31 @@ def load_aux_data (file_path, minimum_scan_angle, file_object=None) :
                                                             file_object=file_object)
 
     return file_object, temp_aux_data
+
+def get_expected_abstract_sets (satellite_constant) :
+    
+    expected_data_sets = { }
+    
+    if satellite_constant == INST_MODIS :
+        expected_data_sets = modis_io.get_abstract_data_sets ()
+    # FUTURE, needs a statment for ctp
+    
+    return expected_data_sets
+
+def get_expected_data_sets_from_aux_data (satellite_constant, aux_data) :
+    """given aux data in the form returned by load_aux_data and the grid degrees constant, return the data sets to be processed
+    
+    Each data set is defined by a constant name, a mask to select that set, it's expected suffixes for temporary density/nobs/data
+    and it's expected suffix for the final output data/nobs
+    """
+    
+    expected_data_sets = { }
+    
+    if satellite_constant == INST_MODIS :
+        expected_data_sets = modis_io.determine_data_sets(aux_data)
+    # FUTURE, needs a statment for ctp
+    
+    return expected_data_sets
 
 def load_variable_from_file (variable_name, file_path=None, file_object=None,
                              data_type_for_output=numpy.float32) :

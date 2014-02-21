@@ -23,24 +23,17 @@ from stg.stg_util  import make_index_grid
 
 LOG = logging.getLogger(__name__)
 
-def calculate_index_from_nav_data (aux_data, grid_degrees) :
-    """
-    given the aux data, use the navigation and masks to calculate
-    where the elements will be space gridded 
+def calculate_index_from_nav_data (lat_data, lon_data, grid_degrees) :
+    """given the lon/lat data, calculate where the elements will be space gridded 
     """
     
-    night_lon_temp = aux_data[LON_KEY][aux_data[NIGHT_MASK_KEY]]
-    night_lat_temp = aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]]
+    # calculate the indexes for lon and lat
+    lon_index = numpy.round((lon_data + 180.0) / grid_degrees) % (360.0 / grid_degrees)
+    lat_index = numpy.round((lat_data +  90.0) / grid_degrees) % (180.0 / grid_degrees)
     
-    # figure out where the day/night indexes will fall
-    day_lon_index   = numpy.round((aux_data[LON_KEY][aux_data[DAY_MASK_KEY]]   + 180.0) / grid_degrees) % (360.0 / grid_degrees)
-    day_lat_index   = numpy.round((aux_data[LAT_KEY][aux_data[DAY_MASK_KEY]]   +  90.0) / grid_degrees) % (180.0 / grid_degrees)
-    night_lon_index = numpy.round((aux_data[LON_KEY][aux_data[NIGHT_MASK_KEY]] + 180.0) / grid_degrees) % (360.0 / grid_degrees)
-    night_lat_index = numpy.round((aux_data[LAT_KEY][aux_data[NIGHT_MASK_KEY]] +  90.0) / grid_degrees) % (180.0 / grid_degrees)
-    
-    return day_lon_index, day_lat_index, night_lon_index, night_lat_index
+    return lat_index, lon_index
 
-def space_grid_data (grid_lon_size, grid_lat_size, data, lon_indexes, lat_indexes ) :
+def space_grid_data (grid_lat_size, grid_lon_size, data, lat_indexes, lon_indexes ) :
     """
     given lon/lat indexes, data, and the grid size, sort the data into a space grid
     

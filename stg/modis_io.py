@@ -174,6 +174,62 @@ def unscale_data (data, fill_mask=None, scale_factor=None, offset=None) :
     
     return to_return
 
+def get_abstract_data_sets () :
+    
+    sets_to_return = { }
+    
+    # build the day set
+    sets_to_return[DAY_SET_KEY] = { }
+    
+    # set all the suffixes
+    sets_to_return[DAY_SET_KEY][SET_TEMP_DENSITY_SUFF_KEY] = DAY_DENSITY_TEMP_SUFFIX
+    sets_to_return[DAY_SET_KEY][SET_TEMP_NOBS_SUFF_KEY]    = DAY_NOBS_TEMP_SUFFIX
+    sets_to_return[DAY_SET_KEY][SET_TEMP_DATA_SUFF_KEY]    = DAY_TEMP_SUFFIX
+    # the final output suffixes
+    sets_to_return[DAY_SET_KEY][SET_FINAL_DATA_SUFF_KEY]   = DAY_SUFFIX
+    sets_to_return[DAY_SET_KEY][SET_FINAL_NOBS_SUFF_KEY]   = DAY_NOBS_SUFFIX
+    
+    # build the night set
+    sets_to_return[NIGHT_SET_KEY] = { }
+    
+    # set all the suffixes
+    sets_to_return[NIGHT_SET_KEY][SET_TEMP_DENSITY_SUFF_KEY] = NIGHT_DENSITY_TEMP_SUFFIX
+    sets_to_return[NIGHT_SET_KEY][SET_TEMP_NOBS_SUFF_KEY]    = NIGHT_NOBS_TEMP_SUFFIX
+    sets_to_return[NIGHT_SET_KEY][SET_TEMP_DATA_SUFF_KEY]    = NIGHT_TEMP_SUFFIX
+    # the final output suffixes
+    sets_to_return[NIGHT_SET_KEY][SET_FINAL_DATA_SUFF_KEY]   = NIGHT_SUFFIX
+    sets_to_return[NIGHT_SET_KEY][SET_FINAL_NOBS_SUFF_KEY]   = NIGHT_NOBS_SUFFIX
+    
+    return sets_to_return
+
+def determine_data_sets(aux_data) :
+    """separate modis data into day and night sets
+    
+    Each data set is defined by a constant name, a mask to select that set, the lon and lat data for that set,
+    it's expected suffixes for temporary density/nobs/data, and it's expected suffix for the final output data/nobs
+    """
+    
+    sets_to_return = get_abstract_data_sets( )
+    
+    # build the day set
+    
+    # set the mask
+    sets_to_return[DAY_SET_KEY][SET_MASK_KEY] = aux_data[DAY_MASK_KEY]
+    # set the lon and lat data
+    sets_to_return[DAY_SET_KEY][LON_KEY]      = aux_data[LON_KEY]
+    sets_to_return[DAY_SET_KEY][LAT_KEY]      = aux_data[LAT_KEY]
+    
+    # build the night set
+    
+    # set the mask
+    sets_to_return[NIGHT_SET_KEY][SET_MASK_KEY] = aux_data[NIGHT_MASK_KEY]
+    # set the lon and lat data
+    sets_to_return[NIGHT_SET_KEY][LON_KEY]      = aux_data[LON_KEY]
+    sets_to_return[NIGHT_SET_KEY][LAT_KEY]      = aux_data[LAT_KEY]
+    
+    # return the final sets
+    return sets_to_return
+
 # FUTURE, will this be used for other satellites? should it move up to the io_manager?
 def satellite_zenith_angle_to_scan_angle (sat_zenith_data) :
     """

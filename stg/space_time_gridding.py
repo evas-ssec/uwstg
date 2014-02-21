@@ -163,6 +163,8 @@ python -m space_time_gridding
         all_vars           = set()
         date_time_temp     = None
         expected_num_files = None
+        satellite          = None
+        instrument         = None
         for file_name in sorted(possible_files) :
             expected_vars[file_name] = general_guidebook.get_variable_names (file_name, user_requested_names=desired_variables)
             # if this file has no variables, remove it from our files for consideration
@@ -172,23 +174,28 @@ python -m space_time_gridding
             # otherwise, add the variables we found to our list of all variables and try to get a time from the file
             else :
                 all_vars.update(expected_vars[file_name])
-                date_time_temp     = general_guidebook.parse_datetime_from_filename(file_name) if date_time_temp     is None else date_time_temp
-                expected_num_files = general_guidebook.get_expected_files_per_day(file_name)   if expected_num_files is None else expected_num_files
+                # if we don't have it yet, update some general information about this run based on the file name
+                temp_sat, temp_inst   = general_guidebook.get_satellite_from_filename(file_name)
+                satellite             = temp_sat  if satellite  is None else satellite
+                instrument            = temp_inst if instrument is None else instrument
+                date_time_temp        = general_guidebook.parse_datetime_from_filename(file_name) if date_time_temp     is None else date_time_temp
+                expected_num_files    = general_guidebook.get_expected_files_per_day(instrument)  if expected_num_files is None else expected_num_files
         
         # check to make sure our intermediate file names don't exist already
         for var_name in all_vars :
             
             for suffix in io_manager.ALL_EXPECTED_SUFFIXES :
-                # TODO, pull satellite and algorithm too
-                temp_stem = io_manager.build_name_stem(var_name, date_time=date_time_temp, satellite=None, algorithm=None, suffix=suffix)
+                # TODO, pull algorithm too
+                temp_stem = io_manager.build_name_stem(var_name, date_time=date_time_temp, satellite=satellite, algorithm=None, suffix=suffix)
                 temp_name = fbf.filename(temp_stem, TEMP_DATA_TYPE, shape=(space_grid_shape))
                 if os.path.exists(os.path.join(output_path, temp_name)) :
                     LOG.warn ("Cannot process files because matching temporary or output files exist in the output directory.")
                     return
         
         # loop to deal with data from each of the files
-        failed_files    = 0
-        sucessful_files = 0
+        failed_files       = 0
+        sucessful_files    = 0
+        abstract_data_sets = io_manager.get_expected_abstract_sets(instrument)
         for each_file in sorted(possible_files) :
             
             full_file_path = os.path.join(input_path, each_file)
@@ -196,15 +203,27 @@ python -m space_time_gridding
             LOG.debug("Processing file: " + full_file_path)
             
             # load the aux data
-            file_object, temp_aux_data = io_manager.load_aux_data(full_file_path,
-                                                                  min_scan_angle)
+            file_object, temp_aux_data = io_manager.load_aux_data(full_file_path, min_scan_angle)
+            # figure out what data sets we need to process
+            data_sets = io_manager.get_expected_data_sets_from_aux_data (instrument, temp_aux_data)
             
-            ok_file = True
+            ok_file     = True
+            lon_indices = { }
+            lat_indices = { }
             try :
-                # calculate the indecies for the space grid based on the aux data
+                
+                # calculate the indecies for the space grid based on the navigation data
                 # (we can do this now since the lon/lat is the same for each variable in the file)
-                day_lon_index, day_lat_index, night_lon_index, night_lat_index = space_gridding.calculate_index_from_nav_data(temp_aux_data,
-                                                                                                                              grid_degrees)
+                for set_key in data_sets.keys() :
+                    
+                    set_mask      = data_sets[set_key][SET_MASK_KEY]
+                    temp_lon_data = data_sets[set_key][LON_KEY][set_mask]
+                    temp_lat_data = data_sets[set_key][LAT_KEY][set_mask]
+                    
+                    lat_index, lon_index = space_gridding.calculate_index_from_nav_data(temp_lat_data, temp_lon_data, grid_degrees)
+                    lat_indices[set_key] = lat_index
+                    lon_indices[set_key] = lon_index
+                
             except Exception, e :
                 
                 LOG.warn("Unable to process basic space gridding for file: " + full_file_path)
@@ -228,20 +247,31 @@ python -m space_time_gridding
                                                                                 file_path=full_file_path,
                                                                                 file_object=file_object)
                     
-                    # split the variable by day/night
-                    day_var_data   = var_data[temp_aux_data[DAY_MASK_KEY]]
-                    night_var_data = var_data[temp_aux_data[NIGHT_MASK_KEY]]
-                    
+                    # split the variable data by sets
+                    separated_data = { }
+                    for set_key in data_sets.keys() :
+                        
+                        separated_data[set_key] = var_data[data_sets[set_key][SET_MASK_KEY]]
                     
                     ok_file = True
+                    space_grids  = { }
+                    density_maps = { }
+                    nobs         = { }
+                    max_depths   = { }
                     try :
+                        
                         # space grid the data using the indexes we calculated earlier
-                        day_space_grid,   day_density_map,   day_nobs,   day_max_depth   = space_gridding.space_grid_data (grid_lon_size, grid_lat_size,
-                                                                                                                           day_var_data,
-                                                                                                                           day_lon_index, day_lat_index)
-                        night_space_grid, night_density_map, night_nobs, night_max_depth = space_gridding.space_grid_data (grid_lon_size, grid_lat_size,
-                                                                                                                           night_var_data,
-                                                                                                                           night_lon_index, night_lat_index)
+                        for set_key in data_sets.keys() :
+                            temp_space_grid, temp_density_map, temp_nobs, temp_max_depth = space_gridding.space_grid_data(grid_lat_size,
+                                                                                                                          grid_lon_size,
+                                                                                                                          separated_data[set_key],
+                                                                                                                          lat_indices[set_key],
+                                                                                                                          lon_indices[set_key])
+                            space_grids[set_key]  = temp_space_grid
+                            density_maps[set_key] = temp_density_map
+                            nobs[set_key]         = temp_nobs
+                            max_depths[set_key]   = temp_max_depth
+                        
                     except Exception, e :
                     
                         LOG.warn("Unable to process variable data space gridding for file: " + full_file_path)
@@ -256,41 +286,31 @@ python -m space_time_gridding
                     if ok_file :
                         
                         # save the space grids and density info for this variable and it's density map to files
-                        
-                        # day related files
-                        io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                 satellite=None, algorithm=None,
-                                                                                 suffix=io_manager.DAY_TEMP_SUFFIX),
-                                                     space_grid_shape, output_path, day_space_grid, TEMP_DATA_TYPE)
-                        io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                 satellite=None, algorithm=None,
-                                                                                 suffix=io_manager.DAY_DENSITY_TEMP_SUFFIX),
-                                                     space_grid_shape, output_path, day_density_map, TEMP_DATA_TYPE)
-                        io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                 satellite=None, algorithm=None,
-                                                                                 suffix=io_manager.DAY_NOBS_TEMP_SUFFIX),
-                                                     space_grid_shape, output_path, day_nobs, TEMP_DATA_TYPE)
-                        
-                        # night related files
-                        
-                        io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                 satellite=None, algorithm=None,
-                                                                                 suffix=io_manager.NIGHT_TEMP_SUFFIX),
-                                                     space_grid_shape, output_path, night_space_grid, TEMP_DATA_TYPE)
-                        io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                 satellite=None, algorithm=None,
-                                                                                 suffix=io_manager.NIGHT_DENSITY_TEMP_SUFFIX),
-                                                     space_grid_shape, output_path, night_density_map, TEMP_DATA_TYPE)
-                        io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                 satellite=None, algorithm=None,
-                                                                                 suffix=io_manager.NIGHT_NOBS_TEMP_SUFFIX),
-                                                     space_grid_shape, output_path, night_nobs, TEMP_DATA_TYPE)
-                
+                        for set_key in data_sets.keys() :
+                            
+                            # save the gridded data
+                            io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
+                                                                                    satellite=satellite, algorithm=None,
+                                                                                    suffix=data_sets[set_key][SET_TEMP_DATA_SUFF_KEY]),
+                                                        space_grid_shape, output_path, space_grids[set_key], TEMP_DATA_TYPE)
+                            # save the grid density map
+                            io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
+                                                                                    satellite=satellite, algorithm=None,
+                                                                                    suffix=data_sets[set_key][SET_TEMP_DENSITY_SUFF_KEY]),
+                                                        space_grid_shape, output_path, density_maps[set_key], TEMP_DATA_TYPE)
+                            # save the number of observations grid
+                            io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
+                                                                                    satellite=satellite, algorithm=None,
+                                                                                    suffix=data_sets[set_key][SET_TEMP_NOBS_SUFF_KEY]),
+                                                        space_grid_shape, output_path, nobs[set_key], TEMP_DATA_TYPE)
+            
             # make sure each file is closed when we're done with it
             io_manager.close_file(full_file_path, file_object)
             
             # if we got to here we processed the file correctly
             sucessful_files += 1
+        
+        LOG.debug("Successfully processed " + str(sucessful_files) + " files and failed to process " + str(failed_files) + " files for this day.")
         
         # warn the user if we have fewer files than we need for this instrument
         if sucessful_files < (expected_num_files * EXPECTED_FRACTION_OF_FILES_PER_DAY) :
@@ -298,10 +318,10 @@ python -m space_time_gridding
             LOG.warn("Expected  " + str(expected_num_files) + " files for this instrument type.")
             
             if options.overrideMinCheck :
-                LOG.warn ("Daily file will be produced, but data may be unusable for this day.")
+                LOG.warn ("Daily file(s) will be produced, but data may be unusable for this day.")
             else :
-                LOG.critical("Daily file will not be produced for this day due to lack of data.")
-                LOG.critical("If you wish to produce the daily file, rerun the program using the \'-d\' option.")
+                LOG.critical("Daily file(s) will not be produced for this day due to lack of data.")
+                LOG.critical("If you wish to produce the daily file(s), rerun the program using the \'-d\' option.")
         
         # only collect the daily data if we have enough files or have turned off the minimum check
         if ( (sucessful_files >= (expected_num_files * EXPECTED_FRACTION_OF_FILES_PER_DAY)) or
@@ -314,86 +334,49 @@ python -m space_time_gridding
                 
                 # load the variable's density maps
                 var_workspace     = Workspace.Workspace(dir=output_path)
-                day_var_density   = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                             satellite=None, algorithm=None,
-                                                                             suffix=io_manager.DAY_DENSITY_TEMP_SUFFIX)][:] 
-                night_var_density = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                             satellite=None, algorithm=None,
-                                                                             suffix=io_manager.NIGHT_DENSITY_TEMP_SUFFIX)][:] 
                 
-                # only do the day data if we have some
-                if numpy.sum(day_var_density) > 0 :
+                for set_key in abstract_data_sets.keys()  :
                     
-                    # load the sparse space grid
-                    day_var_data      = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                 satellite=None, algorithm=None,
-                                                                                 suffix=io_manager.DAY_TEMP_SUFFIX)][:]
+                    # load the density
+                    temp_density = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                                                                             satellite=satellite, algorithm=None,
+                                                                             suffix=abstract_data_sets[set_key][SET_TEMP_DENSITY_SUFF_KEY])][:]
                     
-                    # collapse the space grid
-                    final_day_data    = space_gridding.pack_space_grid(day_var_data,   day_var_density)
-                    
-                    # save the final array to an appropriately named file
-                    io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                            satellite=None, algorithm=None,
-                                                                            suffix=io_manager.DAY_SUFFIX),
-                                                 space_grid_shape, output_path, final_day_data,
-                                                 TEMP_DATA_TYPE, file_permissions="w")
-                    
-                    # load the nobs file
-                    nobs_counts       = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                 satellite=None, algorithm=None,
-                                                                                 suffix=io_manager.DAY_NOBS_TEMP_SUFFIX)][:]
-                    
-                    # collapse the nobs
-                    nobs_final        = numpy.sum(nobs_counts, axis=0)
-                    
-                    # save the final nobs array to an appropriately named file
-                    io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                            satellite=None, algorithm=None,
-                                                                            suffix=io_manager.DAY_NOBS_SUFFIX),
-                                                 space_grid_shape, output_path,
-                                                 nobs_final, TEMP_DATA_TYPE, file_permissions="w")
-                    
-                else :
-                    LOG.warn("No day data was found for variable " + variable_name + ". Day files will not be written.")
-                
-                # only do night data if we have some
-                if numpy.sum(night_var_density) > 0 :
-                    
-                    # load the sparse space grid
-                    night_var_data      = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                 satellite=None, algorithm=None,
-                                                                                 suffix=io_manager.NIGHT_TEMP_SUFFIX)][:]
-                    
-                    # collapse the space grid
-                    final_night_data    = space_gridding.pack_space_grid(night_var_data,   night_var_density)
-                    
-                    # save the final array to an appropriately named file
-                    io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                            satellite=None, algorithm=None,
-                                                                            suffix=io_manager.NIGHT_SUFFIX),
-                                                 space_grid_shape, output_path, final_night_data,
-                                                 TEMP_DATA_TYPE, file_permissions="w")
-                    
-                    # load the nobs file
-                    nobs_counts       = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                 satellite=None, algorithm=None,
-                                                                                 suffix=io_manager.NIGHT_NOBS_TEMP_SUFFIX)][:]
-                    
-                    # collapse the nobs
-                    nobs_final        = numpy.sum(nobs_counts, axis=0)
-                    
-                    # save the final nobs array to an appropriately named file
-                    io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                            satellite=None, algorithm=None,
-                                                                            suffix=io_manager.NIGHT_NOBS_SUFFIX),
-                                                 space_grid_shape, output_path,
-                                                 nobs_final, TEMP_DATA_TYPE, file_permissions="w")
-                    
-                else :
-                    LOG.warn("No night data was found for variable " + variable_name + ". Night files will not be written.")
-        
-        LOG.debug("Successfully processed " + str(sucessful_files) + " files and failed to process " + str(failed_files) + " files for this day.")
+                    # only process the final data if it exists
+                    if numpy.sum(temp_density) > 0 :
+                        
+                        # load the sparse space grid
+                        var_data = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                                                                            satellite=satellite, algorithm=None,
+                                                                            suffix=abstract_data_sets[set_key][SET_TEMP_DATA_SUFF_KEY])][:]
+                        
+                        # collapse the space grid
+                        final_data = space_gridding.pack_space_grid(var_data, temp_density)
+                        
+                        # save the final array to an appropriately named file
+                        io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                                                                                satellite=satellite, algorithm=None,
+                                                                                suffix=abstract_data_sets[set_key][SET_FINAL_DATA_SUFF_KEY]),
+                                                     space_grid_shape, output_path, final_data,
+                                                     TEMP_DATA_TYPE, file_permissions="w")
+                        
+                        # load the nobs file
+                        nobs_counts = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                                                                                     satellite=satellite, algorithm=None,
+                                                                                     suffix=abstract_data_sets[set_key][SET_TEMP_NOBS_SUFF_KEY])][:]
+                        
+                        # collapse the nobs for the whole day
+                        nobs_final = numpy.sum(nobs_counts, axis=0)
+                        
+                        # save the final nobs array to an appropriately named file
+                        io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                                                                                satellite=satellite, algorithm=None,
+                                                                                suffix=abstract_data_sets[set_key][SET_FINAL_NOBS_SUFF_KEY]),
+                                                     space_grid_shape, output_path,
+                                                     nobs_final, TEMP_DATA_TYPE, file_permissions="w")
+                        
+                    else :
+                        LOG.warn("No " + set_key + " data was found for variable " + variable_name + ". Corresponding files will not be written.")
         
         # remove the extra temporary files in the output directory
         remove_suffixes = ["*" + p + "*" for p in io_manager.EXPECTED_TEMP_SUFFIXES]

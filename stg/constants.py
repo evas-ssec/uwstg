@@ -42,3 +42,29 @@ LON_KEY         = "longitude"
 LAT_KEY         = "latitude"
 DAY_MASK_KEY    = "day_mask"
 NIGHT_MASK_KEY  = "night_mask"
+
+# these are suffixes used for temporary files
+DAY_TEMP_SUFFIX           = "_daytemp"
+NIGHT_TEMP_SUFFIX         = "_nighttemp"
+DAY_DENSITY_TEMP_SUFFIX   = "_daydensitytemp"
+NIGHT_DENSITY_TEMP_SUFFIX = "_nightdensitytemp"
+DAY_NOBS_TEMP_SUFFIX      = "_daynobstemp"
+NIGHT_NOBS_TEMP_SUFFIX    = "_nightnobstemp"
+
+# these are suffixes used for the final, packed files
+DAY_SUFFIX                = "_dayfinal"
+NIGHT_SUFFIX              = "_nightfinal"
+DAY_NOBS_SUFFIX           = "_daynobsfinal"
+NIGHT_NOBS_SUFFIX         = "_nightnobsfinal"
+
+# keys for keeping track of data sets
+DAY_SET_KEY               = "day"
+NIGHT_SET_KEY             = "night"
+DAILY_SET                 = "daily"
+SET_MASK_KEY              = "mask"
+SET_TEMP_DENSITY_SUFF_KEY = "temp density suffix"
+SET_TEMP_NOBS_SUFF_KEY    = "temp nobs suffix"
+SET_TEMP_DATA_SUFF_KEY    = "temp data suffix"
+SET_FINAL_DATA_SUFF_KEY   = "output data suffix"
+SET_FINAL_NOBS_SUFF_KEY   = "output nobs suffix"
+

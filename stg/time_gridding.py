@@ -17,7 +17,7 @@ __docformat__ = "restructuredtext en"
 
 import numpy
 
-def create_sample_size_cutoff_mask (data_array, nobs_array,
+def create_sample_size_cutoff_mask (nobs_array,
                                     overall_nobs_array,
                                     fixed_cutoff=None, dynamic_std_cutoff=None) :
     """

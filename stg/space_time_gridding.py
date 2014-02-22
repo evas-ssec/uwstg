@@ -450,7 +450,7 @@ python -m space_time_gridding
                 nobs_data    = var_workspace[nobs_stem][:]
                 
                 # build the cutoff mask
-                bad_data     = time_gridding.create_sample_size_cutoff_mask(gridded_data, nobs_data,
+                bad_data     = time_gridding.create_sample_size_cutoff_mask(nobs_data,
                                                                             nobs_data, # this should be the overall nobs, but I don't have those right now!
                                                                             fixed_cutoff=fix_nobs_cutoff,
                                                                             dynamic_std_cutoff=dyn_nobs_cutoff)
@@ -458,46 +458,53 @@ python -m space_time_gridding
                 clean_gridded_data = gridded_data.copy()
                 clean_gridded_data[bad_data] = numpy.nan
                 
-                # calculate the std, min, max, and (weighted or non-weighted) average
-                min_values  = numpy.nanmin(clean_gridded_data, axis=0)
-                max_values  = numpy.nanmax(clean_gridded_data, axis=0)
-                std_values  = numpy.nanstd(clean_gridded_data, axis=0)
-                mean_values = numpy.nansum(clean_gridded_data, axis=0) / numpy.sum(numpy.isfinite(clean_gridded_data), axis=0)
+                # figure out if we need to split our data
+                variable_name = general_guidebook.get_variable_name_from_flat_file(base_stem)
+                masks_to_split = general_guidebook.mask_variable_for_time_gridding(base_stem, variable_name, clean_gridded_data)
                 
-                # calculate the weighted average contribution for this day
-                w_avg_values = time_gridding.calculate_partial_weighted_time_average(clean_gridded_data, nobs_data[0])
-                
-                # calculate the data fraction
-                #fraction    = numpy.zeros(mean_values.shape, dtype=TEMP_DATA_TYPE)
-                #valid_mask  = nobs_data[0] > 0
-                #fraction[valid_mask] = numpy.sum(numpy.isfinite(clean_gridded_data), axis=0)[valid_mask] / nobs_data[0][valid_mask]
-                fraction = numpy.sum(numpy.isfinite(clean_gridded_data), axis=0) / nobs_data[0]
-                
-                # save the various stats to files
-                
-                # save the min and max
-                io_manager.save_data_to_file(base_stem + DAILY_MIN_SUFFIX,
-                                             min_values.shape, output_path, min_values,
-                                             TEMP_DATA_TYPE, file_permissions="w")
-                io_manager.save_data_to_file(base_stem + DAILY_MAX_SUFFIX,
-                                             max_values.shape, output_path, max_values,
-                                             TEMP_DATA_TYPE, file_permissions="w")
-                
-                # save the std and the averages
-                io_manager.save_data_to_file(base_stem + DAILY_STD_SUFFIX,
-                                             std_values.shape, output_path, std_values,
-                                             TEMP_DATA_TYPE, file_permissions="w")
-                io_manager.save_data_to_file(base_stem + DAILY_MEAN_SUFFIX,
-                                             mean_values.shape, output_path, mean_values,
-                                             TEMP_DATA_TYPE, file_permissions="w")
-                io_manager.save_data_to_file(base_stem + DAILY_W_AVG_SUFFIX,
-                                             w_avg_values.shape, output_path, w_avg_values,
-                                             TEMP_DATA_TYPE, file_permissions="w")
-                
-                # save the fraction
-                io_manager.save_data_to_file(base_stem + DAILY_FRACTION_SUFFIX,
-                                             fraction.shape, output_path, fraction,
-                                             TEMP_DATA_TYPE, file_permissions="w")
+                for mask_key in masks_to_split.keys() :
+                    
+                    this_mask      = masks_to_split[mask_key]
+                    this_mask_data = numpy.ones(clean_gridded_data.shape, dtype=TEMP_DATA_TYPE) * numpy.nan
+                    this_mask_data[this_mask] = clean_gridded_data[this_mask]
+                    
+                    # calculate the std, min, max, and (weighted or non-weighted) average
+                    min_values  = numpy.nanmin(this_mask_data, axis=0)
+                    max_values  = numpy.nanmax(this_mask_data, axis=0)
+                    std_values  = numpy.nanstd(this_mask_data, axis=0)
+                    mean_values = numpy.nansum(this_mask_data, axis=0) / numpy.sum(numpy.isfinite(this_mask_data), axis=0)
+                    
+                    # calculate the weighted average contribution for this day
+                    w_avg_values = time_gridding.calculate_partial_weighted_time_average(this_mask_data, nobs_data[0])
+                    
+                    # calculate the data fraction
+                    fraction = numpy.sum(numpy.isfinite(this_mask_data), axis=0) / nobs_data[0]
+                    
+                    # save the various stats to files
+                    
+                    # save the min and max
+                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_MIN_SUFFIX,
+                                                 min_values.shape, output_path, min_values,
+                                                 TEMP_DATA_TYPE, file_permissions="w")
+                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_MAX_SUFFIX,
+                                                 max_values.shape, output_path, max_values,
+                                                 TEMP_DATA_TYPE, file_permissions="w")
+                    
+                    # save the std and the averages
+                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_STD_SUFFIX,
+                                                 std_values.shape, output_path, std_values,
+                                                 TEMP_DATA_TYPE, file_permissions="w")
+                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_MEAN_SUFFIX,
+                                                 mean_values.shape, output_path, mean_values,
+                                                 TEMP_DATA_TYPE, file_permissions="w")
+                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_W_AVG_SUFFIX,
+                                                 w_avg_values.shape, output_path, w_avg_values,
+                                                 TEMP_DATA_TYPE, file_permissions="w")
+                    
+                    # save the fraction
+                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_FRACTION_SUFFIX,
+                                                 fraction.shape, output_path, fraction,
+                                                 TEMP_DATA_TYPE, file_permissions="w")
             
         
     

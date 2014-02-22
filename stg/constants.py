@@ -43,6 +43,8 @@ LAT_KEY         = "latitude"
 DAY_MASK_KEY    = "day_mask"
 NIGHT_MASK_KEY  = "night_mask"
 
+PLOT_SUFFIX          = "plot_binary"
+
 # these are suffixes used for temporary files
 DAY_TEMP_SUFFIX           = "_daytemp"
 NIGHT_TEMP_SUFFIX         = "_nighttemp"
@@ -51,11 +53,22 @@ NIGHT_DENSITY_TEMP_SUFFIX = "_nightdensitytemp"
 DAY_NOBS_TEMP_SUFFIX      = "_daynobstemp"
 NIGHT_NOBS_TEMP_SUFFIX    = "_nightnobstemp"
 
-# these are suffixes used for the final, packed files
+# these are suffixes used for the final, packed space gridded files
 DAY_SUFFIX                = "_dayfinal"
 NIGHT_SUFFIX              = "_nightfinal"
 DAY_NOBS_SUFFIX           = "_daynobsfinal"
 NIGHT_NOBS_SUFFIX         = "_nightnobsfinal"
+
+# these are suffixes for time gridded files
+HIGH_MODIFIER             = "_high"
+MID_MODIFIER              = "_mid"
+LOW_MODIFIER              = "_low"
+DAILY_MEAN_SUFFIX         = "_daily_mean"
+DAILY_W_AVG_SUFFIX        = "_daily_weighted_average"
+DAILY_MIN_SUFFIX          = "_daily_min"
+DAILY_MAX_SUFFIX          = "_daily_max"
+DAILY_STD_SUFFIX          = "_daily_std"
+DAILY_FRACTION_SUFFIX     = "_daily_fraction"
 
 # keys for keeping track of data sets
 DAY_SET_KEY               = "day"
@@ -68,3 +81,7 @@ SET_TEMP_DATA_SUFF_KEY    = "temp data suffix"
 SET_FINAL_DATA_SUFF_KEY   = "output data suffix"
 SET_FINAL_NOBS_SUFF_KEY   = "output nobs suffix"
 
+# for keeping track of data sets for time gridding
+NOBS_KEY                  = "nobs"
+SPACE_GRID_KEY            = "space gridded data"
+BLANK_STEM_KEY            = "stem"

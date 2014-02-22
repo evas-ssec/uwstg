@@ -48,26 +48,17 @@ def create_sample_size_cutoff_mask (data_array, nobs_array,
     
     return bad_data_mask
 
-def calculate_partial_weighted_time_average (daily_data_array, daily_nobs_array,
-                                             overall_sum_num_measurments_array, overall_sum_nobs_array) :
+def calculate_partial_weighted_time_average (daily_data_array, daily_nobs_array) :
     """
-    given a set of daily data and their matching number of observations array as well as the
-    sum of the overall number of measurments and number of observations per cell (ie. the collapsed
-    2D arrays summed over the whole time period being analyzed), calculate the contribution from this
-    day to the weighted time average
+    given a set of daily data and a matching number-of-observations array 
+    calculate the contribution from this day to the weighted time average
     
     Note: to calculate the weighted time average over the full period, add up all of the daily
-    partial weighted time averages in that period
+    partial weighted time averages in that period and divide
+    by (overall_sum_num_measurments_array / overall_sum_nobs_array) 
     """
     
     good_measurments_this_day = numpy.sum(numpy.isfinite(daily_data_array), axis=0)
-    this_day_weighted_average = ( (daily_data_array * (good_measurments_this_day / daily_nobs_array))
-                                / (overall_sum_num_measurments_array / overall_sum_nobs_array) )
+    this_day_weighted_average = numpy.nansum(daily_data_array, axis=0) * (good_measurments_this_day / daily_nobs_array)
     
     return this_day_weighted_average
-
-
-
-
-
-

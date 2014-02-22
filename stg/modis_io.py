@@ -18,6 +18,8 @@ from constants import *
 import sys
 import logging
 
+from collections import defaultdict
+
 import numpy
 from pyhdf.SD import SD,SDC, SDS, HDF4Error
 
@@ -250,6 +252,34 @@ def satellite_zenith_angle_to_scan_angle (sat_zenith_data) :
     scan_angle_data = ang_data / dtr
     
     return scan_angle_data
+
+def organize_space_gridded_files (file_name_list) :
+    """given some files, organize them by date and group
+    """
+    
+    to_return = defaultdict(dict)
+    
+    for file_name in file_name_list :
+        
+        # figure out the raw stem without a suffix
+        last_ = file_name.rfind('_')
+        stem  = file_name[0:last_]
+        
+        if file_name.find(DAY_SUFFIX) >= 0 :
+            to_return[DAY_SET_KEY][SPACE_GRID_KEY] = file_name
+            to_return[DAY_SET_KEY][BLANK_STEM_KEY] = stem
+        if file_name.find(DAY_NOBS_SUFFIX) >= 0 :
+            to_return[DAY_SET_KEY][NOBS_KEY]       = file_name
+            to_return[DAY_SET_KEY][BLANK_STEM_KEY] = stem
+        
+        if file_name.find(NIGHT_SUFFIX) >= 0 :
+            to_return[NIGHT_SET_KEY][SPACE_GRID_KEY] = file_name
+            to_return[NIGHT_SET_KEY][BLANK_STEM_KEY] = stem
+        if file_name.find(NIGHT_NOBS_SUFFIX) >=0 :
+            to_return[NIGHT_SET_KEY][NOBS_KEY]       = file_name
+            to_return[NIGHT_SET_KEY][BLANK_STEM_KEY] = stem
+    
+    return to_return
 
 def main():
     import optparse

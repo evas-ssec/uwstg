@@ -35,6 +35,7 @@ from stg.constants import *
 import stg.general_guidebook as general_guidebook
 import stg.io_manager        as io_manager
 import stg.space_gridding    as space_gridding
+import stg.time_gridding     as time_gridding
 
 # TODO, in the long run handle the dtype more flexibly
 TEMP_DATA_TYPE = numpy.dtype(numpy.float32)
@@ -110,8 +111,13 @@ python -m space_time_gridding
                       help="set the size of the output grid's cells in degrees")
     parser.add_option('-a', '--min_scan_angle', dest="minScanAngle", type='float', default=60.0,
                       help="the minimum scan angle that will be considered useful")
-    parser.add_option('-d', '--do_process_with_little_data', dest="overrideMinCheck",
+    parser.add_option('-p', '--do_process_with_little_data', dest="overrideMinCheck",
                       action="store_true", default=False, help="run the full daily compilation even if many files are missing or unreadable")
+    parser.add_option('-f', '--fixed_nobs_cutoff', dest="fixedNobsCutoff", type='float', default=None,
+                      help="the minimum number of nobs that must be present for data to be considered when time gridding")
+    parser.add_option('-d', '--dynamic_nobs_cutoff', dest="dynamicNobsCutoff", type='float', default=None,
+                      help="the minimum nobs that must be present for data to be considered when time gridding," +
+                           " expressed a fraction of the std from the mean")
     
     # parse the uers options from the command line
     options, args = parser.parse_args()
@@ -321,7 +327,7 @@ python -m space_time_gridding
                 LOG.warn ("Daily file(s) will be produced, but data may be unusable for this day.")
             else :
                 LOG.critical("Daily file(s) will not be produced for this day due to lack of data.")
-                LOG.critical("If you wish to produce the daily file(s), rerun the program using the \'-d\' option.")
+                LOG.critical("If you wish to produce the daily file(s), rerun the program using the \'-p\' option.")
         
         # only collect the daily data if we have enough files or have turned off the minimum check
         if ( (sucessful_files >= (expected_num_files * EXPECTED_FRACTION_OF_FILES_PER_DAY)) or
@@ -393,22 +399,106 @@ python -m space_time_gridding
         files.
         """
         
-        # set up some of our input from the caller for easy access
-        desired_variables = list(args) if len(args) > 0 else [ ]
-        input_path        = options.inputPath
-        output_path       = options.outputPath
-        
+        # set up some of our caller determined settings for easy access
+        input_path      = options.inputPath
+        output_path     = options.outputPath
+        fix_nobs_cutoff = options.fixedNobsCutoff   if options.fixedNobsCutoff   >= 0 else None
+        dyn_nobs_cutoff = obtions.dynamicNobsCutoff if options.dynamicNobsCutoff >= 0 else None
         
         # check the directory for sets of daily files
+        expected_files_by_date = defaultdict(list)
+        possible_files = os.listdir(input_path)
+        for file_name in sorted(possible_files) :
+            if file_name.startswith(PLOT_SUFFIX) :
+                LOG.debug("Disregarding plot file: " + str(file_name))
+            else :
+                date_stamp = io_manager.get_date_stamp_from_file_name(file_name)
+                if date_stamp is None :
+                    LOG.debug("Disregarding file with no date stamp: " + str(file_name))
+                else :
+                    expected_files_by_date[date_stamp].append(file_name)
+        
+        # organize the daily files
+        organized_files = { }
+        for date_stamp in expected_files_by_date.keys() :
+            
+            organized_files[date_stamp] = io_manager.organize_space_gridded_files(expected_files_by_date[date_stamp])
+        
+        # set up the variable workspace so we can load our input files
+        var_workspace = Workspace.Workspace(dir=input_path)
         
         # for each set of daily files
-        
-        #   load the main data
-        #   load the nobs
-        
-        #   calculate the std, min, max, and (weighted or non-weighted) average
-        
-        #   save the various stats to files
+        for date_stamp in organized_files.keys() :
+            
+            LOG.debug("Processing files for date stamp " + str(date_stamp))
+            
+            this_day = organized_files[date_stamp]
+            
+            for set_key in this_day.keys() :
+                
+                LOG.debug("Processing file set for " + str(set_key))
+                
+                # pull the base stem for ease of use
+                base_stem    = this_day[set_key][BLANK_STEM_KEY]
+                
+                # load the main space gridded data
+                main_stem    = this_day[set_key][SPACE_GRID_KEY].split('.')[0]
+                gridded_data = var_workspace[main_stem][:]
+                
+                # load the nobs
+                nobs_stem    = this_day[set_key][NOBS_KEY].split('.')[0]
+                nobs_data    = var_workspace[nobs_stem][:]
+                
+                # build the cutoff mask
+                bad_data     = time_gridding.create_sample_size_cutoff_mask(gridded_data, nobs_data,
+                                                                            nobs_data, # this should be the overall nobs, but I don't have those right now!
+                                                                            fixed_cutoff=fix_nobs_cutoff,
+                                                                            dynamic_std_cutoff=dyn_nobs_cutoff)
+                # apply the cutoff mask
+                clean_gridded_data = gridded_data.copy()
+                clean_gridded_data[bad_data] = numpy.nan
+                
+                # calculate the std, min, max, and (weighted or non-weighted) average
+                min_values  = numpy.nanmin(clean_gridded_data, axis=0)
+                max_values  = numpy.nanmax(clean_gridded_data, axis=0)
+                std_values  = numpy.nanstd(clean_gridded_data, axis=0)
+                mean_values = numpy.nansum(clean_gridded_data, axis=0) / numpy.sum(numpy.isfinite(clean_gridded_data), axis=0)
+                
+                # calculate the weighted average contribution for this day
+                w_avg_values = time_gridding.calculate_partial_weighted_time_average(clean_gridded_data, nobs_data[0])
+                
+                # calculate the data fraction
+                #fraction    = numpy.zeros(mean_values.shape, dtype=TEMP_DATA_TYPE)
+                #valid_mask  = nobs_data[0] > 0
+                #fraction[valid_mask] = numpy.sum(numpy.isfinite(clean_gridded_data), axis=0)[valid_mask] / nobs_data[0][valid_mask]
+                fraction = numpy.sum(numpy.isfinite(clean_gridded_data), axis=0) / nobs_data[0]
+                
+                # save the various stats to files
+                
+                # save the min and max
+                io_manager.save_data_to_file(base_stem + DAILY_MIN_SUFFIX,
+                                             min_values.shape, output_path, min_values,
+                                             TEMP_DATA_TYPE, file_permissions="w")
+                io_manager.save_data_to_file(base_stem + DAILY_MAX_SUFFIX,
+                                             max_values.shape, output_path, max_values,
+                                             TEMP_DATA_TYPE, file_permissions="w")
+                
+                # save the std and the averages
+                io_manager.save_data_to_file(base_stem + DAILY_STD_SUFFIX,
+                                             std_values.shape, output_path, std_values,
+                                             TEMP_DATA_TYPE, file_permissions="w")
+                io_manager.save_data_to_file(base_stem + DAILY_MEAN_SUFFIX,
+                                             mean_values.shape, output_path, mean_values,
+                                             TEMP_DATA_TYPE, file_permissions="w")
+                io_manager.save_data_to_file(base_stem + DAILY_W_AVG_SUFFIX,
+                                             w_avg_values.shape, output_path, w_avg_values,
+                                             TEMP_DATA_TYPE, file_permissions="w")
+                
+                # save the fraction
+                io_manager.save_data_to_file(base_stem + DAILY_FRACTION_SUFFIX,
+                                             fraction.shape, output_path, fraction,
+                                             TEMP_DATA_TYPE, file_permissions="w")
+            
         
     
     def stats_month(*args) :

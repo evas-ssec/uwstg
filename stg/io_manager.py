@@ -18,6 +18,7 @@ from constants import *
 import sys
 import logging
 import os
+import re
 
 import numpy
 
@@ -48,6 +49,9 @@ ALL_EXPECTED_SUFFIXES     = [DAY_TEMP_SUFFIX,         NIGHT_TEMP_SUFFIX,
                              DAY_NOBS_TEMP_SUFFIX,    NIGHT_NOBS_TEMP_SUFFIX,
                              DAY_SUFFIX,              NIGHT_SUFFIX,
                              DAY_NOBS_SUFFIX,         NIGHT_NOBS_SUFFIX]
+
+# time gridding suffixes
+TIME_FINAL_SUFFIXES       = [ ]
 
 # the strftime format for date stamping our files
 DATE_STAMP_FORMAT         = "%Y%m%d"
@@ -184,6 +188,43 @@ def build_name_stem (variable_name, date_time=None, satellite=None, algorithm=No
     return stem_name
     
     # date_stamp + "_" + var_name + suffix
+
+def get_date_stamp_from_file_name (file_name) :
+    """given a file name starting with a name stem created by build_name_stem, determine the date stamp for the file
+    """
+    
+    date_stamp_to_return = None
+    
+    # make sure we only have the stem
+    stem = file_name.split('.')[0]
+    
+    # break the stem up by underscores
+    split_stem = stem.split('_')
+    for section in split_stem :
+        
+        if re.match(r'\d\d\d\d\d\d\d\d', section) :
+            
+            date_stamp_to_return = section
+    
+    return date_stamp_to_return
+
+def organize_space_gridded_files (file_name_list) :
+    """organize the files into sets based on their names
+    
+    Note: the type of the files is determined by the first file, so the
+    function will not handle mixed sets of files
+    """
+    
+    to_return = { }
+    
+    first_file = file_name_list[0]
+    if ( first_file.startswith(INST_MODIS) or
+         first_file.startswith(SAT_AQUA)   or
+         first_file.startswith(SAT_TERRA)    ) :
+        to_return = modis_io.organize_space_gridded_files(file_name_list)
+    # FUTURE, needs a statment for ctp
+    
+    return to_return
 
 def main():
     import optparse

@@ -25,7 +25,8 @@ matplotlib.use('agg')
 from matplotlib import pyplot as plt
 import matplotlib.cm          as cm
 
-from stg.stg_util import make_lat_lon_grids
+from stg.stg_util  import make_lat_lon_grids
+from stg.constants import *
 
 import keoni.fbf.workspace as Workspace
 from mpl_toolkits.basemap import Basemap
@@ -175,7 +176,7 @@ def save_last_plot (fbf_attr_name, dpi_to_use=DEFAULT_DPI) :
     save the last figure plotted with plt to an appropriately named file
     """
     
-    plt.savefig("plot_binary.%s.png" % fbf_attr_name, dpi=dpi_to_use)
+    plt.savefig(PLOT_SUFFIX + "." + fbf_attr_name + ".png", dpi=dpi_to_use)
     plt.close()
 
 def sci_float(x):

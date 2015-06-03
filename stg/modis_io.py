@@ -190,6 +190,7 @@ def get_abstract_data_sets () :
     # the final output suffixes
     sets_to_return[DAY_SET_KEY][SET_FINAL_DATA_SUFF_KEY]   = DAY_SUFFIX
     sets_to_return[DAY_SET_KEY][SET_FINAL_NOBS_SUFF_KEY]   = DAY_NOBS_SUFFIX
+    sets_to_return[DAY_SET_KEY][SET_FINAL_NMES_SUFF_KEY]   = DAY_NUM_MES_SUFFIX
     
     # build the night set
     sets_to_return[NIGHT_SET_KEY] = { }
@@ -201,6 +202,7 @@ def get_abstract_data_sets () :
     # the final output suffixes
     sets_to_return[NIGHT_SET_KEY][SET_FINAL_DATA_SUFF_KEY]   = NIGHT_SUFFIX
     sets_to_return[NIGHT_SET_KEY][SET_FINAL_NOBS_SUFF_KEY]   = NIGHT_NOBS_SUFFIX
+    sets_to_return[NIGHT_SET_KEY][SET_FINAL_NMES_SUFF_KEY]   = NIGHT_NUM_MES_SUFFIX
     
     return sets_to_return
 

@@ -18,8 +18,9 @@ __docformat__ = "restructuredtext en"
 import numpy
 
 def create_sample_size_cutoff_mask (nobs_array,
-                                    overall_nobs_array,
-                                    fixed_cutoff=None, dynamic_std_cutoff=None) :
+                                    fixed_cutoff=None,
+                                    dynamic_std_cutoff=None,
+                                    nobs_lut=None) :
     """
     given a data array, a matching number of observations array, and an overall number of observations
     for the full time period, create a mask of which data cells should be discarded from this data set.
@@ -38,10 +39,10 @@ def create_sample_size_cutoff_mask (nobs_array,
         bad_data_mask[nobs_array <= fixed_cutoff] = True
     
     # if we have a dynamic cutoff, apply that
-    if dynamic_std_cutoff is not None :
+    if (dynamic_std_cutoff is not None) and (nobs_lut is not None) :
         
-        mean_overall_nobs = numpy.mean(overall_nobs_array, axis=0)
-        std_overall_nobs  = numpy.std (overall_nobs_array, axis=0)
+        mean_overall_nobs = numpy.mean(nobs_lut, axis=0)
+        std_overall_nobs  = numpy.std (nobs_lut, axis=0)
         cutoff_values     = mean_overall_nobs - (std_overall_nobs * dynamic_std_cutoff)
         
         bad_data_mask[nobs_array < cutoff_values] = True

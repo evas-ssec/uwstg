@@ -118,6 +118,8 @@ python -m space_time_gridding
     parser.add_option('-d', '--dynamic_nobs_cutoff', dest="dynamicNobsCutoff", type='float', default=None,
                       help="the minimum nobs that must be present for data to be considered when time gridding," +
                            " expressed a fraction of the std from the mean")
+    parser.add_option('-l', '--nobs_lut', dest="nobsLUT", type='string', default=None,
+                      help="a long term look up table for use with the --dynamic_nobs_cutoff option")
     
     # parse the uers options from the command line
     options, args = parser.parse_args()
@@ -141,7 +143,7 @@ python -m space_time_gridding
     The following functions represent available menu selections
     """
     
-    def space_day(*args) :
+    def space_gridding_day(*args) :
         """grid one day of input files in space
         given an input directory that contains appropriate files,
         grid them in space and put the resulting gridded files
@@ -218,7 +220,7 @@ python -m space_time_gridding
             lat_indices = { }
             try :
                 
-                # calculate the indecies for the space grid based on the navigation data
+                # calculate the indices for the space grid based on the navigation data
                 # (we can do this now since the lon/lat is the same for each variable in the file)
                 for set_key in data_sets.keys() :
                     
@@ -240,7 +242,8 @@ python -m space_time_gridding
                 
                 ok_file       = False
                 failed_files += 1
-            
+
+            # if the file looks alright so far, continue processing it
             if ok_file :
                 
                 # loop to load each variable in the file and process it
@@ -288,7 +291,8 @@ python -m space_time_gridding
                         
                         ok_file       = False
                         failed_files += 1
-                    
+
+                    # if the data in the file looks ok so far, save it to the output
                     if ok_file :
                         
                         # save the space grids and density info for this variable and it's density map to files
@@ -341,7 +345,7 @@ python -m space_time_gridding
                 # load the variable's density maps
                 var_workspace     = Workspace.Workspace(dir=output_path)
                 
-                for set_key in abstract_data_sets.keys()  :
+                for set_key in abstract_data_sets.keys( ) :
                     
                     # load the density
                     temp_density = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
@@ -365,7 +369,7 @@ python -m space_time_gridding
                                                                                 suffix=abstract_data_sets[set_key][SET_FINAL_DATA_SUFF_KEY]),
                                                      space_grid_shape, output_path, final_data,
                                                      TEMP_DATA_TYPE, file_permissions="w")
-                        
+
                         # load the nobs file
                         nobs_counts = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
                                                                                      satellite=satellite, algorithm=None,
@@ -388,22 +392,20 @@ python -m space_time_gridding
         remove_suffixes = ["*" + p + "*" for p in io_manager.EXPECTED_TEMP_SUFFIXES]
         remove_file_patterns(output_path, remove_suffixes)
     
-    def stats_day(*args) :
+    def time_gridding_day(*args) :
         """given a day worth of files of daily space gridded data, calculate daily stats
         
         given an input directory that contains space gridded files for a day,
         calculate daily stats and put the resulting time gridded files
         for that day in the output directory.
-        
-        Note: the output directory will also be used for intermediary working
-        files.
         """
         
         # set up some of our caller determined settings for easy access
         input_path      = options.inputPath
         output_path     = options.outputPath
         fix_nobs_cutoff = options.fixedNobsCutoff   if options.fixedNobsCutoff   >= 0 else None
-        dyn_nobs_cutoff = obtions.dynamicNobsCutoff if options.dynamicNobsCutoff >= 0 else None
+        dyn_nobs_cutoff = options.dynamicNobsCutoff if options.dynamicNobsCutoff >= 0 else None
+        nobs_LUT_path   = options.nobsLUT
         
         # check the directory for sets of daily files
         expected_files_by_date = defaultdict(list)
@@ -448,37 +450,47 @@ python -m space_time_gridding
                 # load the nobs
                 nobs_stem    = this_day[set_key][NOBS_KEY].split('.')[0]
                 nobs_data    = var_workspace[nobs_stem][:]
-                
+
+                # get the nobs LUT if it was provided
+                nobs_LUT = None
+                if nobs_LUT_path is not None :
+                    path_temp = os.path.split(nobs_LUT_path)
+                    temp_workspace = Workspace.Workspace(dir=path_temp[0])
+                    file_stem_temp = path_temp[0].split(".")[0]
+
+                    nobs_LUT = temp_workspace[file_stem_temp][:]
+
                 # build the cutoff mask
                 bad_data     = time_gridding.create_sample_size_cutoff_mask(nobs_data,
-                                                                            nobs_data, # this should be the overall nobs, but I don't have those right now!
                                                                             fixed_cutoff=fix_nobs_cutoff,
-                                                                            dynamic_std_cutoff=dyn_nobs_cutoff)
+                                                                            dynamic_std_cutoff=dyn_nobs_cutoff,
+                                                                            nobs_lut=nobs_LUT,)
                 # apply the cutoff mask
-                clean_gridded_data = gridded_data.copy()
+                clean_gridded_data           = gridded_data.copy()
                 clean_gridded_data[bad_data] = numpy.nan
                 
                 # figure out if we need to split our data
-                variable_name = general_guidebook.get_variable_name_from_flat_file(base_stem)
+                variable_name  = general_guidebook.get_variable_name_from_flat_file(base_stem)
                 masks_to_split = general_guidebook.mask_variable_for_time_gridding(base_stem, variable_name, clean_gridded_data)
-                
+
+                # for each mask given, analyze the data selected by that mask
                 for mask_key in masks_to_split.keys() :
-                    
-                    this_mask      = masks_to_split[mask_key]
-                    this_mask_data = numpy.ones(clean_gridded_data.shape, dtype=TEMP_DATA_TYPE) * numpy.nan
+
+                    # select only the data from this mask, with the rest set to be nan
+                    this_mask                 = masks_to_split[mask_key]
+                    this_mask_data            = numpy.ones(clean_gridded_data.shape, dtype=TEMP_DATA_TYPE) * numpy.nan
                     this_mask_data[this_mask] = clean_gridded_data[this_mask]
-                    
-                    # calculate the std, min, max, and (weighted or non-weighted) average
+
+                    # calculate the data fraction
+                    num_mes          = numpy.sum(numpy.isfinite(this_mask_data), axis=0)
+                    nobs             = nobs_data[0]
+                    #nobs[~this_mask] = 0 # TODO, should I be clearing these out?
+
+                    # calculate the std, min, max, and average
                     min_values  = numpy.nanmin(this_mask_data, axis=0)
                     max_values  = numpy.nanmax(this_mask_data, axis=0)
                     std_values  = numpy.nanstd(this_mask_data, axis=0)
-                    mean_values = numpy.nansum(this_mask_data, axis=0) / numpy.sum(numpy.isfinite(this_mask_data), axis=0)
-                    
-                    # calculate the weighted average contribution for this day
-                    w_avg_values = time_gridding.calculate_partial_weighted_time_average(this_mask_data, nobs_data[0])
-                    
-                    # calculate the data fraction
-                    fraction = numpy.sum(numpy.isfinite(this_mask_data), axis=0) / nobs_data[0]
+                    mean_values = numpy.nansum(this_mask_data, axis=0) / num_mes
                     
                     # save the various stats to files
                     
@@ -490,43 +502,95 @@ python -m space_time_gridding
                                                  max_values.shape, output_path, max_values,
                                                  TEMP_DATA_TYPE, file_permissions="w")
                     
-                    # save the std and the averages
+                    # save the std and the average
                     io_manager.save_data_to_file(base_stem + mask_key + DAILY_STD_SUFFIX,
                                                  std_values.shape, output_path, std_values,
                                                  TEMP_DATA_TYPE, file_permissions="w")
                     io_manager.save_data_to_file(base_stem + mask_key + DAILY_MEAN_SUFFIX,
                                                  mean_values.shape, output_path, mean_values,
                                                  TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_W_AVG_SUFFIX,
-                                                 w_avg_values.shape, output_path, w_avg_values,
+
+                    # save the number of measurements and observations
+                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_NUM_MES_SUFFIX,
+                                                 num_mes.shape, output_path, num_mes,
                                                  TEMP_DATA_TYPE, file_permissions="w")
-                    
-                    # save the fraction
-                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_FRACTION_SUFFIX,
-                                                 fraction.shape, output_path, fraction,
+                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_NOBS_SUFFIX,
+                                                 nobs.shape, output_path, nobs,
                                                  TEMP_DATA_TYPE, file_permissions="w")
-            
-        
-    
-    def stats_month(*args) :
-        """given a month of daily space gridded data, calculate montly stats
-        given an input directory that contains appropriate daily stats,
-        calculate monthly stats and put the resulting gridded files
-        for that month in the output directory.
-        
-        Note: the output directory will also be used for intermediary working
-        files.
+
+    def time_gridding_multiday(*args) :
+        """given a directory with multiple days of daily space gridded data, calculate overall stats
+        given an input directory that contains appropriate daily stats for
+        more than one day, calculate overall stats for that time period and
+        put the resulting gridded files for that time period in the output
+        directory.
+
+        Note: The input days are expected to be consecutive (possibly with missing days).
+        The program will not check the dates present. Sparse (in time) data may give
+        unexpected results.
         """
         
         # set up some of our input from the caller for easy access
         desired_variables = list(args) if len(args) > 0 else [ ]
         input_path        = options.inputPath
         output_path       = options.outputPath
-        min_scan_angle    = options.minScanAngle
-        grid_degrees      = float(options.gridDegrees)
-        
-    
-    
+
+
+
+    def make_nobs_look_up_table (*args) :
+        """given a directory with a multiple daily space gridded files, make a nobs look up table
+        generally this will expect a month of daily space gridded files and will
+        output some files with statistical information on the nobs across that period
+        the resulting look up tables are intended to be used with dynamic cutoffs in
+        time_gridding_multiday calls
+        """
+
+        # set up some of our caller determined settings for easy access
+        input_path      = options.inputPath
+        output_path     = options.outputPath
+
+        # check the directory for sets of daily files
+        expected_files_by_date = defaultdict(list)
+        possible_files = os.listdir(input_path)
+        for file_name in sorted(possible_files) :
+            if file_name.find(DAILY_NOBS_KEY) < 0 :
+                LOG.debug("Disregarding non-nobs file: " + str(file_name))
+            else :
+                date_stamp = io_manager.get_date_stamp_from_file_name(file_name)
+                if date_stamp is None :
+                    LOG.debug("Disregarding file with no date stamp: " + str(file_name))
+                else :
+                    expected_files_by_date[date_stamp].append(file_name)
+
+        # organize the daily files
+        organized_files = { }
+        for date_stamp in expected_files_by_date.keys() :
+
+            organized_files[date_stamp] = io_manager.organize_space_gridded_files(expected_files_by_date[date_stamp])
+
+        # set up the variable workspace so we can load our input files
+        var_workspace = Workspace.Workspace(dir=input_path)
+
+        # for each set of daily files
+        for date_stamp in organized_files.keys() :
+            for set_key in organized_files[date_stamp].keys() :
+
+                # load the nobs
+                nobs_stem    = organized_files[date_stamp][set_key][NOBS_KEY].split('.')[0]
+                nobs_data    = var_workspace[nobs_stem][:]
+                stem_no_time =    nobs_stem[nobs_stem.find("_")+1:] # get rid of the time
+                stem_no_time = stem_no_time[0:stem_no_time.rfind("_")] # get rid of the previous suffix
+
+                # save the number of observations grid
+                io_manager.save_data_to_file(stem_no_time + NOBS_LUT_SUFFIX + set_key,
+                                            nobs_data[0].shape, output_path, nobs_data[0], TEMP_DATA_TYPE)
+                io_manager.save_data_to_file(stem_no_time + NOBS_LUT_SUFFIX + ALL_SET,
+                                            nobs_data[0].shape, output_path, nobs_data[0], TEMP_DATA_TYPE)
+
+    """
+    This is the end of the menu selection functions.
+    """
+
     # all the local public functions are considered part of the application, collect them up
     commands.update(dict(x for x in locals().items() if x[0] not in prior))    
     

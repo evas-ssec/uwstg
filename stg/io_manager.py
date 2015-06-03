@@ -34,24 +34,32 @@ import keoni.fbf as fbf
 
 LOG = logging.getLogger(__name__)
 
-# these are suffixes used for temporary files
-EXPECTED_TEMP_SUFFIXES    = [DAY_TEMP_SUFFIX,         NIGHT_TEMP_SUFFIX,
+# these are suffixes used for temporary files while space gridding
+EXPECTED_TEMP_SUFFIXES    = [
+                             DAY_TEMP_SUFFIX,         NIGHT_TEMP_SUFFIX,
                              DAY_DENSITY_TEMP_SUFFIX, NIGHT_DENSITY_TEMP_SUFFIX,
-                             DAY_NOBS_TEMP_SUFFIX,    NIGHT_NOBS_TEMP_SUFFIX]
+                             DAY_NOBS_TEMP_SUFFIX,    NIGHT_NOBS_TEMP_SUFFIX,
+                            ]
 
-# these are suffixes used for the final, packed files
-EXPECTED_FINAL_SUFFIXES   = [DAY_SUFFIX,      NIGHT_SUFFIX,
-                             DAY_NOBS_SUFFIX, NIGHT_NOBS_SUFFIX]
+# these are suffixes used for the final, packed files from space gridding
+EXPECTED_FINAL_SUFFIXES   = [
+                             DAY_SUFFIX,         NIGHT_SUFFIX,
+                             DAY_NOBS_SUFFIX,    NIGHT_NOBS_SUFFIX,
+                            ]
 
-# all the suffixes we can produce
-ALL_EXPECTED_SUFFIXES     = [DAY_TEMP_SUFFIX,         NIGHT_TEMP_SUFFIX,
+# all the suffixes we can produce while doing space gridding
+ALL_EXPECTED_SUFFIXES     = [
+                             DAY_TEMP_SUFFIX,         NIGHT_TEMP_SUFFIX,
                              DAY_DENSITY_TEMP_SUFFIX, NIGHT_DENSITY_TEMP_SUFFIX,
                              DAY_NOBS_TEMP_SUFFIX,    NIGHT_NOBS_TEMP_SUFFIX,
                              DAY_SUFFIX,              NIGHT_SUFFIX,
-                             DAY_NOBS_SUFFIX,         NIGHT_NOBS_SUFFIX]
+                             DAY_NOBS_SUFFIX,         NIGHT_NOBS_SUFFIX,
+                            ]
 
 # time gridding suffixes
-TIME_FINAL_SUFFIXES       = [ ]
+TIME_FINAL_SUFFIXES       = [
+                             DAY_NUM_MES_SUFFIX, NIGHT_NUM_MES_SUFFIX,
+                            ]
 
 # the strftime format for date stamping our files
 DATE_STAMP_FORMAT         = "%Y%m%d"
@@ -172,16 +180,16 @@ def build_name_stem (variable_name, date_time=None, satellite=None, algorithm=No
     
     # the basic stem name is just the variable
     stem_name = variable_name
-    
-    # if we have a date time, add a time stamp at the beginning
-    stem_name = date_time.strftime(DATE_STAMP_FORMAT) + "_" + stem_name if date_time is not None else stem_name
-    
+
     # if we have an algorithm prefix add that
     stem_name = algorithm + "_" + stem_name if algorithm is not None else stem_name
     
     # if we have a satellite, add that to the beginning
     stem_name = satellite + "_" + stem_name if satellite is not None else stem_name
-    
+
+    # if we have a date time, add a time stamp at the beginning
+    stem_name = date_time.strftime(DATE_STAMP_FORMAT) + "_" + stem_name if date_time is not None else stem_name
+
     # if we have a suffix, add that too
     stem_name = stem_name + suffix if suffix is not None else stem_name
     

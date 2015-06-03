@@ -58,28 +58,37 @@ DAY_SUFFIX                = "_dayfinal"
 NIGHT_SUFFIX              = "_nightfinal"
 DAY_NOBS_SUFFIX           = "_daynobsfinal"
 NIGHT_NOBS_SUFFIX         = "_nightnobsfinal"
+DAY_NUM_MES_SUFFIX        = "_daynummeasurements"
+NIGHT_NUM_MES_SUFFIX      = "_nightnummeasurements"
+DAILY_NOBS_KEY            = "nobsfinal"
 
 # these are suffixes for time gridded files
 HIGH_MODIFIER             = "_high"
 MID_MODIFIER              = "_mid"
 LOW_MODIFIER              = "_low"
 DAILY_MEAN_SUFFIX         = "_daily_mean"
-DAILY_W_AVG_SUFFIX        = "_daily_weighted_average"
+DAILY_NUM_MES_SUFFIX      = "_daily_num_measurements"
+DAILY_NOBS_SUFFIX         = "_daily_num_observations"
 DAILY_MIN_SUFFIX          = "_daily_min"
 DAILY_MAX_SUFFIX          = "_daily_max"
 DAILY_STD_SUFFIX          = "_daily_std"
 DAILY_FRACTION_SUFFIX     = "_daily_fraction"
 
+# look up table files
+NOBS_LUT_SUFFIX           = "_lut_nobs_"
+
 # keys for keeping track of data sets
 DAY_SET_KEY               = "day"
 NIGHT_SET_KEY             = "night"
 DAILY_SET                 = "daily"
+ALL_SET                   = "all"
 SET_MASK_KEY              = "mask"
 SET_TEMP_DENSITY_SUFF_KEY = "temp density suffix"
 SET_TEMP_NOBS_SUFF_KEY    = "temp nobs suffix"
 SET_TEMP_DATA_SUFF_KEY    = "temp data suffix"
 SET_FINAL_DATA_SUFF_KEY   = "output data suffix"
 SET_FINAL_NOBS_SUFF_KEY   = "output nobs suffix"
+SET_FINAL_NMES_SUFF_KEY   = "output num measurements suffix"
 
 # for keeping track of data sets for time gridding
 NOBS_KEY                  = "nobs"

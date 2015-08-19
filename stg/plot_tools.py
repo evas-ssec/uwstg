@@ -53,7 +53,6 @@ def plot_mapped(data, baseMapInstance, title,
         if len(data.shape) > 2 :
             # calculate a rough mean
             data = numpy.nansum(data, axis=0) / numpy.sum(numpy.isfinite(data), axis=0)
-            #data = data[0]
         
         temp_mask = numpy.isnan(data) if fillValue is numpy.nan else data == fillValue
         data      = numpy.ma.masked_where(temp_mask, data)
@@ -194,9 +193,9 @@ Plot binary files using matplotlib.
             help="Specify the fill_value of the input file(s)")
     
     parser.add_argument('--vmin', dest="vmin", default=None, type=int,
-            help="Specify minimum brightness value. Defaults to minimum value of data.")
+            help="Specify minimum data value. Defaults to minimum value of data.")
     parser.add_argument('--vmax', dest="vmax", default=None, type=int,
-            help="Specify maximum brightness value. Defaults to maximum value of data.")
+            help="Specify maximum data value. Defaults to maximum value of data.")
     
     parser.add_argument("-p", dest="pattern",
             help="filename pattern to search the current directory for")

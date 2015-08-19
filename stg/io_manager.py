@@ -66,7 +66,7 @@ DATE_STAMP_FORMAT         = "%Y%m%d"
 
 def open_file (file_path) :
     """
-    given a file path that is a modis file, open it
+    given a file path, open it
     """
     
     file_object = None
@@ -114,7 +114,7 @@ def get_expected_abstract_sets (satellite_constant) :
     
     if satellite_constant == INST_MODIS :
         expected_data_sets = modis_io.get_abstract_data_sets ()
-    # FUTURE, needs a statment for ctp
+    # FUTURE, needs a statement for ctp
     
     return expected_data_sets
 
@@ -129,7 +129,7 @@ def get_expected_data_sets_from_aux_data (satellite_constant, aux_data) :
     
     if satellite_constant == INST_MODIS :
         expected_data_sets = modis_io.determine_data_sets(aux_data)
-    # FUTURE, needs a statment for ctp
+    # FUTURE, needs a statement for ctp
     
     return expected_data_sets
 
@@ -181,14 +181,14 @@ def build_name_stem (variable_name, date_time=None, satellite=None, algorithm=No
     # the basic stem name is just the variable
     stem_name = variable_name
 
+    # if we have a date time, add a time stamp at the beginning
+    stem_name = date_time.strftime(DATE_STAMP_FORMAT) + "_" + stem_name if date_time is not None else stem_name
+
     # if we have an algorithm prefix add that
     stem_name = algorithm + "_" + stem_name if algorithm is not None else stem_name
     
     # if we have a satellite, add that to the beginning
     stem_name = satellite + "_" + stem_name if satellite is not None else stem_name
-
-    # if we have a date time, add a time stamp at the beginning
-    stem_name = date_time.strftime(DATE_STAMP_FORMAT) + "_" + stem_name if date_time is not None else stem_name
 
     # if we have a suffix, add that too
     stem_name = stem_name + suffix if suffix is not None else stem_name
@@ -220,7 +220,7 @@ def organize_space_gridded_files (file_name_list) :
     """organize the files into sets based on their names
     
     Note: the type of the files is determined by the first file, so the
-    function will not handle mixed sets of files
+    function will not handle mixed sets of files properly
     """
     
     to_return = { }
@@ -230,7 +230,7 @@ def organize_space_gridded_files (file_name_list) :
          first_file.startswith(SAT_AQUA)   or
          first_file.startswith(SAT_TERRA)    ) :
         to_return = modis_io.organize_space_gridded_files(file_name_list)
-    # FUTURE, needs a statment for ctp
+    # FUTURE, needs a statement for ctp
     
     return to_return
 

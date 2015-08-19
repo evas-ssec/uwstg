@@ -84,8 +84,7 @@ def load_variable_from_file (variable_name, file_path=None, file_object=None,
                              offset_name=modis_guidebook.ADD_OFFSET_ATTR_NAME,
                              data_type_for_output=numpy.float32,
                              zero_cutoff_exceptions=modis_guidebook.NAVIGATION_VAR_NAMES) :
-    """
-    load a given variable from a file path or file object
+    """load a given variable from a file path or file object
     """
     
     if file_path is None and file_object is None :
@@ -130,8 +129,9 @@ def load_variable_from_file (variable_name, file_path=None, file_object=None,
     
     # if appropriate, also cutoff any data that is less than zero
     if variable_name not in zero_cutoff_exceptions :
-        negative_mask = raw_data_copy < 0 # note numpy.nan tests as less than zero too, but that's fine here
-        raw_data_copy[negative_mask] = numpy.nan
+        negative_mask = raw_data_copy < 0 # note, numpy.nan tests as less than zero too, but that's fine here
+        raw_data_copy[negative_mask] = fill_value
+        fill_mask = raw_data_copy == fill_value # recalculate the fill mask to also include stuff the cutoff removed
     
     # we got all the info we need about that file
     SDS.endaccess(variable_object)
@@ -144,7 +144,7 @@ def load_variable_from_file (variable_name, file_path=None, file_object=None,
     assert(data_type is not None)
     
     # create the scaled version of the data
-    scaled_data_copy                = raw_data_copy.copy()
+    scaled_data_copy = raw_data_copy.copy()
     scaled_data_copy = unscale_data(scaled_data_copy, fill_mask=fill_mask,
                                     scale_factor=scale_factor, offset=add_offset)
     
@@ -163,8 +163,9 @@ def unscale_data (data, fill_mask=None, scale_factor=None, offset=None) :
     """
     
     to_return = data
-    
-    not_fill_mask = ~fill_mask
+
+    # invert our fill mask or generate an "include everything" mask
+    not_fill_mask = ~fill_mask if fill_mask is not None else numpy.ones(data.shape, dtype=numpy.bool)
     
     # if we have an offset use it to offset the data
     if (offset is       not None) and (offset       is not 0.0) :

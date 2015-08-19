@@ -139,9 +139,7 @@ python -m space_time_gridding
     prior = None
     prior = dict(locals())
     
-    """
-    The following functions represent available menu selections
-    """
+    ##### The following functions represent available menu selections #####
     
     def space_gridding_day(*args) :
         """grid one day of input files in space
@@ -175,10 +173,12 @@ python -m space_time_gridding
         instrument         = None
         for file_name in sorted(possible_files) :
             expected_vars[file_name] = general_guidebook.get_variable_names (file_name, user_requested_names=desired_variables)
+
             # if this file has no variables, remove it from our files for consideration
             if len(expected_vars[file_name]) <= 0 :
                 del expected_vars[file_name]
                 possible_files.remove(file_name)
+
             # otherwise, add the variables we found to our list of all variables and try to get a time from the file
             else :
                 all_vars.update(expected_vars[file_name])
@@ -193,7 +193,7 @@ python -m space_time_gridding
         for var_name in all_vars :
             
             for suffix in io_manager.ALL_EXPECTED_SUFFIXES :
-                # TODO, pull algorithm too
+                # TODO, pull algorithm name too
                 temp_stem = io_manager.build_name_stem(var_name, date_time=date_time_temp, satellite=satellite, algorithm=None, suffix=suffix)
                 temp_name = fbf.filename(temp_stem, TEMP_DATA_TYPE, shape=(space_grid_shape))
                 if os.path.exists(os.path.join(output_path, temp_name)) :
@@ -452,6 +452,7 @@ python -m space_time_gridding
                 nobs_data    = var_workspace[nobs_stem][:]
 
                 # get the nobs LUT if it was provided
+                # TODO, shouldn't this be loaded once rather than per day?
                 nobs_LUT = None
                 if nobs_LUT_path is not None :
                     path_temp = os.path.split(nobs_LUT_path)
@@ -486,7 +487,7 @@ python -m space_time_gridding
                     nobs             = nobs_data[0]
                     #nobs[~this_mask] = 0 # TODO, should I be clearing these out?
 
-                    # calculate the std, min, max, and average
+                    # calculate the std, min, max, and mean
                     min_values  = numpy.nanmin(this_mask_data, axis=0)
                     max_values  = numpy.nanmax(this_mask_data, axis=0)
                     std_values  = numpy.nanstd(this_mask_data, axis=0)
@@ -520,6 +521,7 @@ python -m space_time_gridding
 
     def time_gridding_multiday(*args) :
         """given a directory with multiple days of daily space gridded data, calculate overall stats
+
         given an input directory that contains appropriate daily stats for
         more than one day, calculate overall stats for that time period and
         put the resulting gridded files for that time period in the output
@@ -535,10 +537,12 @@ python -m space_time_gridding
         input_path        = options.inputPath
         output_path       = options.outputPath
 
+        # TODO, this is unfinished
 
 
     def make_nobs_look_up_table (*args) :
         """given a directory with a multiple daily space gridded files, make a nobs look up table
+
         generally this will expect a month of daily space gridded files and will
         output some files with statistical information on the nobs across that period
         the resulting look up tables are intended to be used with dynamic cutoffs in

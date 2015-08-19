@@ -80,7 +80,7 @@ def get_expected_files_per_day (satellite_constant) :
     
     if satellite_constant == INST_MODIS :
         number_to_return = modis_guidebook.EXPECTED_FILES_PER_DAY
-    # FUTURE, needs a statment for ctp
+    # FUTURE, needs a statement for ctp
     
     return number_to_return
 

@@ -74,6 +74,14 @@ def get_variable_names (file_name_string, user_requested_names=[ ]) :
 
 def get_expected_files_per_day (satellite_constant) :
     """given a file name, determine the expected number of files per day for that instrument
+
+    For future updates, here are the file number constants (number of granules per day) from Nadia.
+    (These should go down in the more specific guidebooks as they are built.)
+
+	MODIS: 288 (already incorporated in the Modis guidebook)
+	AIRS: 241
+	IASI: 480
+	CrIS: 180
     """
     
     number_to_return = None

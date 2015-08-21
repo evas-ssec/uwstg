@@ -40,7 +40,7 @@ import stg.time_gridding     as time_gridding
 # TODO, in the long run handle the dtype more flexibly
 TEMP_DATA_TYPE = numpy.dtype(numpy.float32)
 
-# TODO, need to confirm with Nadia that this is the cutoff she wants
+# have confirmed with Nadia that this is the cutoff she wants for now
 EXPECTED_FRACTION_OF_FILES_PER_DAY = 2.0 / 3.0
 
 LOG = logging.getLogger(__name__)
@@ -591,9 +591,7 @@ python -m space_time_gridding
                 io_manager.save_data_to_file(stem_no_time + NOBS_LUT_SUFFIX + ALL_SET,
                                             nobs_data[0].shape, output_path, nobs_data[0], TEMP_DATA_TYPE)
 
-    """
-    This is the end of the menu selection functions.
-    """
+    ##### This is the end of the menu selection functions. #####
 
     # all the local public functions are considered part of the application, collect them up
     commands.update(dict(x for x in locals().items() if x[0] not in prior))    
@@ -601,14 +599,12 @@ python -m space_time_gridding
     # if what the user asked for is not one of our existing functions, print the help
     if (not args) or (args[0] not in commands): 
         parser.print_help()
-        help()
+        # help()
         return 9
     else:
         # call the function the user named, given the arguments from the command line  
         rc = locals()[args[0]](*args[1:])
         return 0 if rc is None else rc
-    
-    return 0 # it shouldn't be possible to get here any longer
 
 if __name__=='__main__':
     sys.exit(main())

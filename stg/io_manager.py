@@ -175,20 +175,20 @@ def build_name_stem (variable_name, date_time=None, satellite=None, algorithm=No
     include that in the file stem as well
     
     the name format is:
-            satellite_algorithm_datestamp_variablename_suffix
+            datestamp_satellite_algorithm_variablename_suffix
     """
     
     # the basic stem name is just the variable
     stem_name = variable_name
-
-    # if we have a date time, add a time stamp at the beginning
-    stem_name = date_time.strftime(DATE_STAMP_FORMAT) + "_" + stem_name if date_time is not None else stem_name
 
     # if we have an algorithm prefix add that
     stem_name = algorithm + "_" + stem_name if algorithm is not None else stem_name
     
     # if we have a satellite, add that to the beginning
     stem_name = satellite + "_" + stem_name if satellite is not None else stem_name
+
+    # if we have a date time, add a time stamp at the beginning
+    stem_name = date_time.strftime(DATE_STAMP_FORMAT) + "_" + stem_name if date_time is not None else stem_name
 
     # if we have a suffix, add that too
     stem_name = stem_name + suffix if suffix is not None else stem_name

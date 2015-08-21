@@ -49,17 +49,15 @@ def create_sample_size_cutoff_mask (nobs_array,
     
     return bad_data_mask
 
-def calculate_partial_weighted_time_average (daily_data_array, daily_nobs_array) :
+# TODO, not yet fully designed, needs parameters
+def calculate_weighted_time_average ( ) :
+    """calculate the weighted time average over multiple days
+
+    The weighted time average over multiple days is calculated by summing partial contributions from each day
+    weighted by the cloud fraction for that day and dividing by the overall cloud fraction across all days:
+
+    SUM (cloud fraction for each day * that day's daily average)
+    ---------------------------------------------------------------------
+    overall num measurements for all days / overall sum nobs for all days
     """
-    given a set of daily data and a matching number-of-observations array 
-    calculate the contribution from this day to the weighted time average
-    
-    Note: to calculate the weighted time average over the full period, add up all of the daily
-    partial weighted time averages in that period and divide
-    by (overall_sum_num_measurments_array / overall_sum_nobs_array) 
-    """
-    
-    good_measurments_this_day = numpy.sum(numpy.isfinite(daily_data_array), axis=0)
-    this_day_weighted_average = numpy.nansum(daily_data_array, axis=0) * (good_measurments_this_day / daily_nobs_array)
-    
-    return this_day_weighted_average
+

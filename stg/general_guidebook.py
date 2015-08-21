@@ -101,9 +101,7 @@ def mask_variable_for_time_gridding (flat_file_name, variable_name, variable_dat
     
     masks_to_return = { }
     
-    if ( flat_file_name.startswith(INST_MODIS) or
-         flat_file_name.startswith(SAT_AQUA)   or
-         flat_file_name.startswith(SAT_TERRA)    ) :
+    if modis_guidebook.is_MODIS_flat_file(flat_file_name) :
         masks_to_return = modis_guidebook.mask_variable_for_time_gridding(variable_name, variable_data)
     # FUTURE, needs a statment for ctp
     
@@ -115,9 +113,7 @@ def get_variable_name_from_flat_file (flat_file_name) :
     
     name_to_return = None
     
-    if ( flat_file_name.startswith(INST_MODIS) or
-         flat_file_name.startswith(SAT_AQUA)   or
-         flat_file_name.startswith(SAT_TERRA)    ) :
+    if modis_guidebook.is_MODIS_flat_file(flat_file_name) :
         name_to_return = modis_guidebook.get_variable_name_from_flat_file(flat_file_name)
     # FUTURE, needs a statment for ctp
     

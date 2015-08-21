@@ -334,8 +334,7 @@ python -m space_time_gridding
                 LOG.critical("If you wish to produce the daily file(s), rerun the program using the \'-p\' option.")
         
         # only collect the daily data if we have enough files or have turned off the minimum check
-        if ( (sucessful_files >= (expected_num_files * EXPECTED_FRACTION_OF_FILES_PER_DAY)) or
-             (options.overrideMinCheck) ):
+        if ( (sucessful_files >= (expected_num_files * EXPECTED_FRACTION_OF_FILES_PER_DAY)) or options.overrideMinCheck ):
             
             # collapse the per variable space grids to remove excess NaNs
             for variable_name in all_vars :
@@ -428,25 +427,27 @@ python -m space_time_gridding
         
         # set up the variable workspace so we can load our input files
         var_workspace = Workspace.Workspace(dir=input_path)
-        
+
         # for each set of daily files
         for date_stamp in organized_files.keys() :
             
             LOG.debug("Processing files for date stamp " + str(date_stamp))
-            
+
+            # pull all the file paths for this day
             this_day = organized_files[date_stamp]
-            
+
+            # go through each set for the day
             for set_key in this_day.keys() :
                 
                 LOG.debug("Processing file set for " + str(set_key))
-                
+
                 # pull the base stem for ease of use
                 base_stem    = this_day[set_key][BLANK_STEM_KEY]
                 
                 # load the main space gridded data
                 main_stem    = this_day[set_key][SPACE_GRID_KEY].split('.')[0]
                 gridded_data = var_workspace[main_stem][:]
-                
+
                 # load the nobs
                 nobs_stem    = this_day[set_key][NOBS_KEY].split('.')[0]
                 nobs_data    = var_workspace[nobs_stem][:]
@@ -485,37 +486,39 @@ python -m space_time_gridding
                     # calculate the data fraction
                     num_mes          = numpy.sum(numpy.isfinite(this_mask_data), axis=0)
                     nobs             = nobs_data[0]
-                    #nobs[~this_mask] = 0 # TODO, should I be clearing these out?
 
-                    # calculate the std, min, max, and mean
-                    min_values  = numpy.nanmin(this_mask_data, axis=0)
-                    max_values  = numpy.nanmax(this_mask_data, axis=0)
+                    # calculate the std
                     std_values  = numpy.nanstd(this_mask_data, axis=0)
+                    # calculate the mean (divide by the number of measurements)
                     mean_values = numpy.nansum(this_mask_data, axis=0) / num_mes
+                    # calculate the cloud fraction (num measurements / num obs)
+                    cloud_frac  = num_mes / nobs
+                    # calculate the uncertainty (std / num meas)
+                    uncertainty = std_values / num_mes
                     
                     # save the various stats to files
                     
-                    # save the min and max
-                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_MIN_SUFFIX,
-                                                 min_values.shape, output_path, min_values,
-                                                 TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_MAX_SUFFIX,
-                                                 max_values.shape, output_path, max_values,
-                                                 TEMP_DATA_TYPE, file_permissions="w")
-                    
-                    # save the std and the average
-                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_STD_SUFFIX,
+                    # save the std and the mean
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_STD_SUFFIX,
                                                  std_values.shape, output_path, std_values,
                                                  TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_MEAN_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_MEAN_SUFFIX,
                                                  mean_values.shape, output_path, mean_values,
                                                  TEMP_DATA_TYPE, file_permissions="w")
 
+                    # save the cloud fraction and uncertainty
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_FRACTION_SUFFIX,
+                                                 cloud_frac.shape, output_path, cloud_frac,
+                                                 TEMP_DATA_TYPE, file_permissions="w")
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_UNCERTAINTY_SUFFIX,
+                                                 uncertainty.shape, output_path, uncertainty,
+                                                 TEMP_DATA_TYPE, file_permissions="w")
+
                     # save the number of measurements and observations
-                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_NUM_MES_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_NUM_MES_SUFFIX,
                                                  num_mes.shape, output_path, num_mes,
                                                  TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + mask_key + DAILY_NOBS_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_NOBS_SUFFIX,
                                                  nobs.shape, output_path, nobs,
                                                  TEMP_DATA_TYPE, file_permissions="w")
 

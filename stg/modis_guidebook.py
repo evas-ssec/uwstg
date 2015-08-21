@@ -189,6 +189,14 @@ def is_MODIS_file (file_name_string) :
     
     return (temp_name_string.startswith('MYD') or temp_name_string.startswith('MOD')) and temp_name_string.endswith('hdf')
 
+def is_MODIS_flat_file (file_name_string) :
+    """determine if a flat file is a modis variable
+    """
+
+    return ( file_name_string.find(INST_MODIS) >= 0 or
+             file_name_string.find(SAT_AQUA)   >= 0 or
+             file_name_string.find(SAT_TERRA)  >= 0   )
+
 def parse_datetime_from_filename (file_name_string) :
     """parse the given file_name_string and create an appropriate datetime object
     that represents the datetime indicated by the file name; if the file name does

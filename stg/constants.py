@@ -72,7 +72,9 @@ DAILY_NOBS_SUFFIX         = "_daily_num_observations"
 DAILY_MIN_SUFFIX          = "_daily_min"
 DAILY_MAX_SUFFIX          = "_daily_max"
 DAILY_STD_SUFFIX          = "_daily_std"
-DAILY_FRACTION_SUFFIX     = "_daily_fraction"
+DAILY_FRACTION_SUFFIX     = "_daily_cloud_fraction"
+DAILY_UNCERTAINTY_SUFFIX  = "_daily_uncertainty"
+
 
 # look up table files
 NOBS_LUT_SUFFIX           = "_lut_nobs_"

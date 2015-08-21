@@ -244,10 +244,10 @@ def satellite_zenith_angle_to_scan_angle (sat_zenith_data) :
     """
     
     # some constants
-    re = 6371.03;
-    altkm = 825;
-    fac = re / (re + altkm);
-    dtr = 0.01745329;
+    re = 6371.03
+    altkm = 825
+    fac = re / (re + altkm)
+    dtr = 0.01745329
     
     # do the angle calculations
     arg_data        = sat_zenith_data * dtr
@@ -286,7 +286,7 @@ def organize_space_gridded_files (file_name_list) :
 
 def main():
     import optparse
-    from pprint import pprint
+    #from pprint import pprint
     usage = """
 %prog [options] filename1.hdf
 

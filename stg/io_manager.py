@@ -226,9 +226,7 @@ def organize_space_gridded_files (file_name_list) :
     to_return = { }
     
     first_file = file_name_list[0]
-    if ( first_file.startswith(INST_MODIS) or
-         first_file.startswith(SAT_AQUA)   or
-         first_file.startswith(SAT_TERRA)    ) :
+    if modis_guidebook.is_MODIS_flat_file(first_file) :
         to_return = modis_io.organize_space_gridded_files(file_name_list)
     # FUTURE, needs a statement for ctp
     
@@ -236,7 +234,7 @@ def organize_space_gridded_files (file_name_list) :
 
 def main():
     import optparse
-    from pprint import pprint
+    #from pprint import pprint
     usage = """
 %prog [options] filename1.hdf
 

@@ -161,7 +161,7 @@ python -m space_time_gridding
         # determine the grid size in number of elements
         grid_lon_size      = int(math.ceil(360.0 / grid_degrees))
         grid_lat_size      = int(math.ceil(180.0 / grid_degrees))
-        space_grid_shape   = (grid_lon_size, grid_lat_size) # TODO, is this the correct order?
+        space_grid_shape   = (grid_lat_size, grid_lon_size) # I've confirmed with Nadia that this is the correct order
         
         # look through our files and figure out what variables we expect from them
         possible_files     = os.listdir(input_path)

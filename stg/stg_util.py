@@ -22,11 +22,11 @@ def make_lat_lon_grids ((lat_size, lon_size), lat_min=-90, lat_max=90, lon_min=-
     # build our lon/lat from the data shape
     lon_row  = numpy.linspace(lon_min, lon_max, lon_size)
     lon_data = numpy.tile(lon_row, (lat_size, 1))
-    lon_data = numpy.transpose(lon_data)
+    #lon_data = numpy.transpose(lon_data)
     
     lat_row  = numpy.linspace(lat_min, lat_max, lat_size)
     lat_data = numpy.tile(lat_row, (lon_size, 1))
-    #lat_data = numpy.transpose(lat_data)
+    lat_data = numpy.transpose(lat_data)
     
     return lat_data, lon_data
 

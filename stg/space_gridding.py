@@ -44,35 +44,32 @@ def space_grid_data (grid_lat_size, grid_lon_size, data, lat_indexes, lon_indexe
     #if data.size > 0 :
     #    print ("data range: " + str(data.min()) + " " + str(data.max()))
     
-    space_grid_shape = (grid_lon_size, grid_lat_size) # TODO, is this the correct order?
+    space_grid_shape = (grid_lat_size, grid_lon_size) # I've confirmed with Nadia that this is the correct order
     
     # create the density map and figure out how dense the data will be
     # FUTURE, figure out how to do this in native numpy ops instead of loops
     density_map = numpy.zeros(space_grid_shape)
     nobs_map    = numpy.zeros(space_grid_shape)
     for index in range(data.size) :
-        nobs_map[lon_indexes[index], lat_indexes[index]] += 1
+        nobs_map[lat_indexes[index], lon_indexes[index]] += 1
         if numpy.isfinite(data[index]) :
-            density_map[lon_indexes[index], lat_indexes[index]] += 1
+            density_map[lat_indexes[index], lon_indexes[index]] += 1
     max_depth = numpy.max(density_map)
     
     #print ("max depth: " + str(max_depth))
     
     # create the space grids for this variable
-    space_grid = numpy.ones((max_depth, grid_lon_size, grid_lat_size), dtype=numpy.float32) * numpy.nan #TODO, dtype should be set dynamically
+    space_grid = numpy.ones((max_depth, grid_lat_size, grid_lon_size), dtype=numpy.float32) * numpy.nan #TODO, dtype should be set dynamically
     temp_depth = numpy.zeros(space_grid_shape)
     
     # put the variable data into the space grid
     # FUTURE, figure out how to do this in native numpy ops instead of loops
     for index in range(data.size) :
         if numpy.isfinite(data[index]) :
-            depth = temp_depth[lon_indexes[index], lat_indexes[index]]
-            space_grid[depth,  lon_indexes[index], lat_indexes[index]] = data[index]
-            temp_depth[        lon_indexes[index], lat_indexes[index]] += 1
-    
-    #if space_grid.size > 0 :
-    #    print ("grid range: "), numpy.nanmin(space_grid), numpy.nanmax(space_grid)
-    
+            depth = temp_depth[lat_indexes[index], lon_indexes[index]]
+            space_grid[depth,  lat_indexes[index], lon_indexes[index]] = data[index]
+            temp_depth[        lat_indexes[index], lon_indexes[index]] += 1
+
     return space_grid, density_map, nobs_map, max_depth
 
 def pack_space_grid (data_array, density_array) :
@@ -92,7 +89,7 @@ def pack_space_grid (data_array, density_array) :
     LOG.debug("  original data shape: " + str(data_array.shape))
     LOG.debug("  final data shape:    " + str(final_data.shape))
     
-    lat_data, lon_data = make_index_grid(data_array.shape[1:3])
+    # lat_data, lon_data = make_index_grid(data_array.shape[1:3])
     
     temp_index = numpy.zeros((data_array.shape[1], data_array.shape[2]), dtype=numpy.int)
     for depth in range(data_array.shape[0]) :
@@ -100,10 +97,8 @@ def pack_space_grid (data_array, density_array) :
         this_slice = data_array[depth]
         valid_mask = numpy.isfinite(this_slice)
         
-        """
-        final_data[temp_index, lat_data, lon_data] = this_slice
-        
-        """
+        # final_data[temp_index, lat_data, lon_data] = this_slice
+
         # FUTURE, can we do this directly with numpy instead of looping?
         for row in range(this_slice.shape[0]) :
             for col in range(this_slice.shape[1]) :

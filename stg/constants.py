@@ -52,6 +52,9 @@ DAY_DENSITY_TEMP_SUFFIX   = "_daydensitytemp"
 NIGHT_DENSITY_TEMP_SUFFIX = "_nightdensitytemp"
 DAY_NOBS_TEMP_SUFFIX      = "_daynobstemp"
 NIGHT_NOBS_TEMP_SUFFIX    = "_nightnobstemp"
+ALL_TEMP_SUFFIX           = "_alltemp"
+ALL_DENSITY_TEMP_SUFFIX   = "_alldensitytemp"
+ALL_NOBS_TEMP_SUFFIX      = "_allnobstemp"
 
 # these are suffixes used for the final, packed space gridded files
 DAY_SUFFIX                = "_dayfinal"
@@ -60,6 +63,9 @@ DAY_NOBS_SUFFIX           = "_daynobsfinal"
 NIGHT_NOBS_SUFFIX         = "_nightnobsfinal"
 DAY_NUM_MES_SUFFIX        = "_daynummeasurements"
 NIGHT_NUM_MES_SUFFIX      = "_nightnummeasurements"
+ALL_SUFFIX                = "_allfinal"
+ALL_NOBS_SUFFIX           = "_allnobsfinal"
+ALL_NUM_MES_SUFFIX        = "_allnummeasurements"
 DAILY_NOBS_KEY            = "nobsfinal"
 
 # these are suffixes for time gridded files

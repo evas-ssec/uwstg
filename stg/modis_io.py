@@ -176,33 +176,49 @@ def unscale_data (data, fill_mask=None, scale_factor=None, offset=None) :
     
     return to_return
 
-def get_abstract_data_sets () :
+def get_abstract_data_sets (do_separate_day_night=True) :
     
     sets_to_return = { }
-    
-    # build the day set
-    sets_to_return[DAY_SET_KEY] = { }
-    
-    # set all the suffixes
-    sets_to_return[DAY_SET_KEY][SET_TEMP_DENSITY_SUFF_KEY] = DAY_DENSITY_TEMP_SUFFIX
-    sets_to_return[DAY_SET_KEY][SET_TEMP_NOBS_SUFF_KEY]    = DAY_NOBS_TEMP_SUFFIX
-    sets_to_return[DAY_SET_KEY][SET_TEMP_DATA_SUFF_KEY]    = DAY_TEMP_SUFFIX
-    # the final output suffixes
-    sets_to_return[DAY_SET_KEY][SET_FINAL_DATA_SUFF_KEY]   = DAY_SUFFIX
-    sets_to_return[DAY_SET_KEY][SET_FINAL_NOBS_SUFF_KEY]   = DAY_NOBS_SUFFIX
-    sets_to_return[DAY_SET_KEY][SET_FINAL_NMES_SUFF_KEY]   = DAY_NUM_MES_SUFFIX
-    
-    # build the night set
-    sets_to_return[NIGHT_SET_KEY] = { }
-    
-    # set all the suffixes
-    sets_to_return[NIGHT_SET_KEY][SET_TEMP_DENSITY_SUFF_KEY] = NIGHT_DENSITY_TEMP_SUFFIX
-    sets_to_return[NIGHT_SET_KEY][SET_TEMP_NOBS_SUFF_KEY]    = NIGHT_NOBS_TEMP_SUFFIX
-    sets_to_return[NIGHT_SET_KEY][SET_TEMP_DATA_SUFF_KEY]    = NIGHT_TEMP_SUFFIX
-    # the final output suffixes
-    sets_to_return[NIGHT_SET_KEY][SET_FINAL_DATA_SUFF_KEY]   = NIGHT_SUFFIX
-    sets_to_return[NIGHT_SET_KEY][SET_FINAL_NOBS_SUFF_KEY]   = NIGHT_NOBS_SUFFIX
-    sets_to_return[NIGHT_SET_KEY][SET_FINAL_NMES_SUFF_KEY]   = NIGHT_NUM_MES_SUFFIX
+
+    if do_separate_day_night :
+
+        # build the day set
+        sets_to_return[DAY_SET_KEY] = { }
+
+        # set all the suffixes
+        sets_to_return[DAY_SET_KEY][SET_TEMP_DENSITY_SUFF_KEY] = DAY_DENSITY_TEMP_SUFFIX
+        sets_to_return[DAY_SET_KEY][SET_TEMP_NOBS_SUFF_KEY]    = DAY_NOBS_TEMP_SUFFIX
+        sets_to_return[DAY_SET_KEY][SET_TEMP_DATA_SUFF_KEY]    = DAY_TEMP_SUFFIX
+        # the final output suffixes
+        sets_to_return[DAY_SET_KEY][SET_FINAL_DATA_SUFF_KEY]   = DAY_SUFFIX
+        sets_to_return[DAY_SET_KEY][SET_FINAL_NOBS_SUFF_KEY]   = DAY_NOBS_SUFFIX
+        sets_to_return[DAY_SET_KEY][SET_FINAL_NMES_SUFF_KEY]   = DAY_NUM_MES_SUFFIX
+
+        # build the night set
+        sets_to_return[NIGHT_SET_KEY] = { }
+
+        # set all the suffixes
+        sets_to_return[NIGHT_SET_KEY][SET_TEMP_DENSITY_SUFF_KEY] = NIGHT_DENSITY_TEMP_SUFFIX
+        sets_to_return[NIGHT_SET_KEY][SET_TEMP_NOBS_SUFF_KEY]    = NIGHT_NOBS_TEMP_SUFFIX
+        sets_to_return[NIGHT_SET_KEY][SET_TEMP_DATA_SUFF_KEY]    = NIGHT_TEMP_SUFFIX
+        # the final output suffixes
+        sets_to_return[NIGHT_SET_KEY][SET_FINAL_DATA_SUFF_KEY]   = NIGHT_SUFFIX
+        sets_to_return[NIGHT_SET_KEY][SET_FINAL_NOBS_SUFF_KEY]   = NIGHT_NOBS_SUFFIX
+        sets_to_return[NIGHT_SET_KEY][SET_FINAL_NMES_SUFF_KEY]   = NIGHT_NUM_MES_SUFFIX
+
+    else :
+
+        # build the night set
+        sets_to_return[ALL_SET_KEY] = { }
+
+        # set all the suffixes
+        sets_to_return[ALL_SET_KEY][SET_TEMP_DENSITY_SUFF_KEY] = ALL_DENSITY_TEMP_SUFFIX
+        sets_to_return[ALL_SET_KEY][SET_TEMP_NOBS_SUFF_KEY]    = ALL_NOBS_TEMP_SUFFIX
+        sets_to_return[ALL_SET_KEY][SET_TEMP_DATA_SUFF_KEY]    = ALL_TEMP_SUFFIX
+        # the final output suffixes
+        sets_to_return[ALL_SET_KEY][SET_FINAL_DATA_SUFF_KEY]   = ALL_SUFFIX
+        sets_to_return[ALL_SET_KEY][SET_FINAL_NOBS_SUFF_KEY]   = ALL_NOBS_SUFFIX
+        sets_to_return[ALL_SET_KEY][SET_FINAL_NMES_SUFF_KEY]   = ALL_NUM_MES_SUFFIX
     
     return sets_to_return
 
@@ -213,7 +229,7 @@ def determine_data_sets(aux_data, do_separate_day_night=True) :
     it's expected suffixes for temporary density/nobs/data, and it's expected suffix for the final output data/nobs
     """
     
-    sets_to_return = get_abstract_data_sets( )
+    sets_to_return = get_abstract_data_sets(do_separate_day_night=do_separate_day_night)
 
     if do_separate_day_night :
         # build the day set

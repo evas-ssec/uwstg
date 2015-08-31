@@ -206,7 +206,7 @@ python -m space_time_gridding
         # loop to deal with data from each of the files
         failed_files       = 0
         sucessful_files    = 0
-        abstract_data_sets = io_manager.get_expected_abstract_sets(instrument)
+        abstract_data_sets = io_manager.get_expected_abstract_sets(instrument, separate_day_night=do_day_night)
         for each_file in sorted(possible_files) :
             
             full_file_path = os.path.join(input_path, each_file)
@@ -348,7 +348,9 @@ python -m space_time_gridding
                 var_workspace     = Workspace.Workspace(dir=output_path)
                 
                 for set_key in abstract_data_sets.keys( ) :
-                    
+
+                    LOG.debug("Packing data for set key: " + set_key)
+
                     # load the density
                     temp_density = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
                                                                              satellite=satellite, algorithm=None,

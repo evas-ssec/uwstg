@@ -108,12 +108,12 @@ def load_aux_data (file_path, minimum_scan_angle, file_object=None) :
 
     return file_object, temp_aux_data
 
-def get_expected_abstract_sets (satellite_constant) :
+def get_expected_abstract_sets (satellite_constant, separate_day_night=True) :
     
     expected_data_sets = { }
     
     if satellite_constant == INST_MODIS :
-        expected_data_sets = modis_io.get_abstract_data_sets ()
+        expected_data_sets = modis_io.get_abstract_data_sets (separate_day_night=separate_day_night)
     # FUTURE, needs a statement for ctp
     
     return expected_data_sets

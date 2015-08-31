@@ -118,7 +118,7 @@ def get_expected_abstract_sets (satellite_constant) :
     
     return expected_data_sets
 
-def get_expected_data_sets_from_aux_data (satellite_constant, aux_data) :
+def get_expected_data_sets_from_aux_data (satellite_constant, aux_data, do_separate_day_night=True) :
     """given aux data in the form returned by load_aux_data and the grid degrees constant, return the data sets to be processed
     
     Each data set is defined by a constant name, a mask to select that set, it's expected suffixes for temporary density/nobs/data
@@ -128,7 +128,7 @@ def get_expected_data_sets_from_aux_data (satellite_constant, aux_data) :
     expected_data_sets = { }
     
     if satellite_constant == INST_MODIS :
-        expected_data_sets = modis_io.determine_data_sets(aux_data)
+        expected_data_sets = modis_io.determine_data_sets(aux_data, do_separate_day_night=do_separate_day_night)
     # FUTURE, needs a statement for ctp
     
     return expected_data_sets

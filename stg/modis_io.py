@@ -48,8 +48,7 @@ def close_file (file_object) :
     file_object.end()
 
 def load_aux_data (file_path, minimum_scan_angle, file_object=None) :
-    """
-    load the auxillary data and process the appropriate masks from it
+    """load the auxiliary data and process the appropriate masks from it
     """
     
     # make our return structure
@@ -207,30 +206,38 @@ def get_abstract_data_sets () :
     
     return sets_to_return
 
-def determine_data_sets(aux_data) :
-    """separate modis data into day and night sets
+def determine_data_sets(aux_data, do_separate_day_night=True) :
+    """separate modis data into day and night sets if desired
     
     Each data set is defined by a constant name, a mask to select that set, the lon and lat data for that set,
     it's expected suffixes for temporary density/nobs/data, and it's expected suffix for the final output data/nobs
     """
     
     sets_to_return = get_abstract_data_sets( )
-    
-    # build the day set
-    
-    # set the mask
-    sets_to_return[DAY_SET_KEY][SET_MASK_KEY] = aux_data[DAY_MASK_KEY]
-    # set the lon and lat data
-    sets_to_return[DAY_SET_KEY][LON_KEY]      = aux_data[LON_KEY]
-    sets_to_return[DAY_SET_KEY][LAT_KEY]      = aux_data[LAT_KEY]
-    
-    # build the night set
-    
-    # set the mask
-    sets_to_return[NIGHT_SET_KEY][SET_MASK_KEY] = aux_data[NIGHT_MASK_KEY]
-    # set the lon and lat data
-    sets_to_return[NIGHT_SET_KEY][LON_KEY]      = aux_data[LON_KEY]
-    sets_to_return[NIGHT_SET_KEY][LAT_KEY]      = aux_data[LAT_KEY]
+
+    if do_separate_day_night :
+        # build the day set
+
+        # set the mask
+        sets_to_return[DAY_SET_KEY][SET_MASK_KEY] = aux_data[DAY_MASK_KEY]
+        # set the lon and lat data
+        sets_to_return[DAY_SET_KEY][LON_KEY]      = aux_data[LON_KEY]
+        sets_to_return[DAY_SET_KEY][LAT_KEY]      = aux_data[LAT_KEY]
+
+        # build the night set
+
+        # set the mask
+        sets_to_return[NIGHT_SET_KEY][SET_MASK_KEY] = aux_data[NIGHT_MASK_KEY]
+        # set the lon and lat data
+        sets_to_return[NIGHT_SET_KEY][LON_KEY]      = aux_data[LON_KEY]
+        sets_to_return[NIGHT_SET_KEY][LAT_KEY]      = aux_data[LAT_KEY]
+
+    else :
+        # build a set that will include all the data
+        sets_to_return[ALL_SET_KEY][SET_MASK_KEY] = numpy.ones(aux_data[LON_KEY].shape, dtype=numpy.bool)
+        # set the lon and lat data
+        sets_to_return[ALL_SET_KEY][LON_KEY]      = aux_data[LON_KEY]
+        sets_to_return[ALL_SET_KEY][LAT_KEY]      = aux_data[LAT_KEY]
     
     # return the final sets
     return sets_to_return

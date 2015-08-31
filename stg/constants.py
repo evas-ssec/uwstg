@@ -82,6 +82,7 @@ NOBS_LUT_SUFFIX           = "_lut_nobs_"
 # keys for keeping track of data sets
 DAY_SET_KEY               = "day"
 NIGHT_SET_KEY             = "night"
+ALL_SET_KEY               = "all"
 DAILY_SET                 = "daily"
 ALL_SET                   = "all"
 SET_MASK_KEY              = "mask"

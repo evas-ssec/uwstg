@@ -120,6 +120,8 @@ python -m space_time_gridding
                            " expressed a fraction of the std from the mean")
     parser.add_option('-l', '--nobs_lut', dest="nobsLUT", type='string', default=None,
                       help="a long term look up table for use with the --dynamic_nobs_cutoff option")
+    parser.add_option('-t', '--day_night_together', dest='keep_day_night_together',
+                      action="store_true", default=False, help="instead of separating day and night data, process them together")
     
     # parse the uers options from the command line
     options, args = parser.parse_args()
@@ -157,6 +159,7 @@ python -m space_time_gridding
         output_path        = options.outputPath
         min_scan_angle     = options.minScanAngle
         grid_degrees       = float(options.gridDegrees)
+        do_day_night       = not options.keep_day_night_together
         
         # determine the grid size in number of elements
         grid_lon_size      = int(math.ceil(360.0 / grid_degrees))
@@ -213,7 +216,7 @@ python -m space_time_gridding
             # load the aux data
             file_object, temp_aux_data = io_manager.load_aux_data(full_file_path, min_scan_angle)
             # figure out what data sets we need to process
-            data_sets = io_manager.get_expected_data_sets_from_aux_data (instrument, temp_aux_data)
+            data_sets = io_manager.get_expected_data_sets_from_aux_data (instrument, temp_aux_data, do_separate_day_night=do_day_night)
             
             ok_file     = True
             lon_indices = { }

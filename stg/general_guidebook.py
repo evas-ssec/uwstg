@@ -103,7 +103,7 @@ def mask_variable_for_time_gridding (flat_file_name, variable_name, variable_dat
     
     if modis_guidebook.is_MODIS_flat_file(flat_file_name) :
         masks_to_return = modis_guidebook.mask_variable_for_time_gridding(variable_name, variable_data)
-    # FUTURE, needs a statment for ctp
+    # FUTURE, needs a statement for ctp
     
     return masks_to_return
 
@@ -115,7 +115,7 @@ def get_variable_name_from_flat_file (flat_file_name) :
     
     if modis_guidebook.is_MODIS_flat_file(flat_file_name) :
         name_to_return = modis_guidebook.get_variable_name_from_flat_file(flat_file_name)
-    # FUTURE, needs a statment for ctp
+    # FUTURE, needs a statement for ctp
     
     return name_to_return
 

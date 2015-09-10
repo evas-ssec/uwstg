@@ -22,7 +22,7 @@ Copyright (C) 2014 Space Science and Engineering Center (SSEC),
 """
 __docformat__ = "restructuredtext en"
 
-
+# constants for the satellite names
 SAT_NOAA_14     = 'noaa-14'
 SAT_NOAA_15     = 'noaa-15'
 SAT_NOAA_16     = 'noaa-16'
@@ -33,7 +33,18 @@ SAT_METOP_A     = 'metop-a'
 SAT_METOP_B     = 'metop-b'
 SAT_AQUA        = "aqua"
 SAT_TERRA       = "terra"
+ALL_SATS        = {SAT_NOAA_14,
+                   SAT_NOAA_15,
+                   SAT_NOAA_16,
+                   SAT_NOAA_17,
+                   SAT_NOAA_18,
+                   SAT_NOAA_19,
+                   SAT_METOP_A,
+                   SAT_METOP_B,
+                   SAT_AQUA,
+                   SAT_TERRA}
 
+# constants for the instrument types
 INST_AVHRR      = 'avhrr'
 INST_HIRS       = 'hirs'
 INST_MODIS      = "modis"
@@ -46,44 +57,68 @@ NIGHT_MASK_KEY  = "night_mask"
 PLOT_SUFFIX          = "plot_binary"
 
 # these are suffixes used for temporary files
-DAY_TEMP_SUFFIX           = "_daytemp"
-NIGHT_TEMP_SUFFIX         = "_nighttemp"
-DAY_DENSITY_TEMP_SUFFIX   = "_daydensitytemp"
-NIGHT_DENSITY_TEMP_SUFFIX = "_nightdensitytemp"
-DAY_NOBS_TEMP_SUFFIX      = "_daynobstemp"
-NIGHT_NOBS_TEMP_SUFFIX    = "_nightnobstemp"
-ALL_TEMP_SUFFIX           = "_alltemp"
-ALL_DENSITY_TEMP_SUFFIX   = "_alldensitytemp"
-ALL_NOBS_TEMP_SUFFIX      = "_allnobstemp"
+DAY_TEMP_SUFFIX           = "daytemp"
+NIGHT_TEMP_SUFFIX         = "nighttemp"
+DAY_DENSITY_TEMP_SUFFIX   = "daydensitytemp"
+NIGHT_DENSITY_TEMP_SUFFIX = "nightdensitytemp"
+DAY_NOBS_TEMP_SUFFIX      = "daynobstemp"
+NIGHT_NOBS_TEMP_SUFFIX    = "nightnobstemp"
+ALL_TEMP_SUFFIX           = "alltemp"
+ALL_DENSITY_TEMP_SUFFIX   = "alldensitytemp"
+ALL_NOBS_TEMP_SUFFIX      = "allnobstemp"
 
-# these are suffixes used for the final, packed space gridded files
-DAY_SUFFIX                = "_dayfinal"
-NIGHT_SUFFIX              = "_nightfinal"
-DAY_NOBS_SUFFIX           = "_daynobsfinal"
-NIGHT_NOBS_SUFFIX         = "_nightnobsfinal"
-DAY_NUM_MES_SUFFIX        = "_daynummeasurements"
-NIGHT_NUM_MES_SUFFIX      = "_nightnummeasurements"
-ALL_SUFFIX                = "_allfinal"
-ALL_NOBS_SUFFIX           = "_allnobsfinal"
-ALL_NUM_MES_SUFFIX        = "_allnummeasurements"
+# these are suffixes used for the final, packed daily space gridded files
+DAY_SUFFIX                = "dayfinal"
+NIGHT_SUFFIX              = "nightfinal"
+DAY_NOBS_SUFFIX           = "daynobsfinal"
+NIGHT_NOBS_SUFFIX         = "nightnobsfinal"
+DAY_NUM_MES_SUFFIX        = "daynummeasurements"
+NIGHT_NUM_MES_SUFFIX      = "nightnummeasurements"
+ALL_SUFFIX                = "allfinal"
+ALL_NOBS_SUFFIX           = "allnobsfinal"
+ALL_NUM_MES_SUFFIX        = "allnummeasurements"
 DAILY_NOBS_KEY            = "nobsfinal"
+DAILY_SPACE_SUFFIXES      = {DAY_SUFFIX,
+                             NIGHT_SUFFIX,
+                             DAY_NOBS_SUFFIX,
+                             NIGHT_NOBS_SUFFIX,
+                             DAY_NUM_MES_SUFFIX,
+                             NIGHT_NUM_MES_SUFFIX,
+                             ALL_SUFFIX,
+                             ALL_NOBS_SUFFIX,
+                             ALL_NUM_MES_SUFFIX,}
+
+# these represent the categories data may be separated into for time gridding
+HIGH_MODIFIER             = "high"      # high/mid/low are intended to be used for cloud top pressure categories
+MID_MODIFIER              = "mid"
+LOW_MODIFIER              = "low"
 
 # these are suffixes for time gridded files
-HIGH_MODIFIER             = "_high"
-MID_MODIFIER              = "_mid"
-LOW_MODIFIER              = "_low"
-DAILY_MEAN_SUFFIX         = "_daily_mean"
-DAILY_NUM_MES_SUFFIX      = "_daily_num_measurements"
-DAILY_NOBS_SUFFIX         = "_daily_num_observations"
-DAILY_MIN_SUFFIX          = "_daily_min"
-DAILY_MAX_SUFFIX          = "_daily_max"
-DAILY_STD_SUFFIX          = "_daily_std"
-DAILY_FRACTION_SUFFIX     = "_daily_cloud_fraction"
-DAILY_UNCERTAINTY_SUFFIX  = "_daily_uncertainty"
-
+DAILY_MEAN_SUFFIX         = "daily-mean"
+DAILY_NUM_MES_SUFFIX      = "daily-num-measurements"
+DAILY_NOBS_SUFFIX         = "daily-num-observations"
+DAILY_MIN_SUFFIX          = "daily-min"
+DAILY_MAX_SUFFIX          = "daily-max"
+DAILY_STD_SUFFIX          = "daily-std"
+DAILY_FRACTION_SUFFIX     = "daily-cloud-fraction"
+DAILY_UNCERTAINTY_SUFFIX  = "daily-uncertainty"
+DAILY_TIME_SUFFIXES       = {DAILY_MEAN_SUFFIX,
+                             DAILY_NUM_MES_SUFFIX,
+                             DAILY_NOBS_SUFFIX,
+                             DAILY_MIN_SUFFIX,
+                             DAILY_MAX_SUFFIX,
+                             DAILY_STD_SUFFIX,
+                             DAILY_FRACTION_SUFFIX,
+                             DAILY_UNCERTAINTY_SUFFIX,}
 
 # look up table files
-NOBS_LUT_SUFFIX           = "_lut_nobs_"
+NOBS_LUT_SUFFIX           = "lut-nobs"
+
+# some constants to describe file types
+DAILY_SPACE_TYPE          = "daily-space-gridded-file"
+DAILY_TIME_TYPE           = "daily-time-gridded-file"
+MULTIDAY_TIME_TYPE        = "multi-day-time-gridded-file"
+NOBS_LUT_TYPE             = "num-obs-look-up-table-file"
 
 # keys for keeping track of data sets
 DAY_SET_KEY               = "day"

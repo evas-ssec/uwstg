@@ -23,10 +23,13 @@ import math
 import glob
 import traceback
 import sys
+import time
 
 import numpy
 
 from collections import defaultdict
+
+from netCDF4 import Dataset
 
 import keoni.fbf.workspace as Workspace
 import keoni.fbf       as fbf
@@ -83,7 +86,11 @@ def main():
 run "%prog help" to list commands
 examples:
 
-python -m space_time_gridding 
+stg space_gridding_day -i /input/path -g 0.5 -t
+stg time_gridding_day -i /input/path -o /output/path
+stg time_gridding_multiday
+stg flatfile_to_netCDF -o /output/path
+stg make_nobs_lut -i /input/path
 
 """
     
@@ -196,8 +203,7 @@ python -m space_time_gridding
         for var_name in all_vars :
             
             for suffix in io_manager.ALL_EXPECTED_SUFFIXES :
-                # TODO, pull algorithm name too
-                temp_stem = io_manager.build_name_stem(var_name, date_time=date_time_temp, satellite=satellite, algorithm=None, suffix=suffix)
+                temp_stem = io_manager.build_name_stem(var_name, date_time=date_time_temp, satellite=satellite, suffix=suffix)
                 temp_name = fbf.filename(temp_stem, TEMP_DATA_TYPE, shape=(space_grid_shape))
                 if os.path.exists(os.path.join(output_path, temp_name)) :
                     LOG.warn ("Cannot process files because matching temporary or output files exist in the output directory.")
@@ -303,17 +309,17 @@ python -m space_time_gridding
                             
                             # save the gridded data
                             io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                    satellite=satellite, algorithm=None,
+                                                                                    satellite=satellite,
                                                                                     suffix=data_sets[set_key][SET_TEMP_DATA_SUFF_KEY]),
                                                         space_grid_shape, output_path, space_grids[set_key], TEMP_DATA_TYPE)
                             # save the grid density map
                             io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                    satellite=satellite, algorithm=None,
+                                                                                    satellite=satellite,
                                                                                     suffix=data_sets[set_key][SET_TEMP_DENSITY_SUFF_KEY]),
                                                         space_grid_shape, output_path, density_maps[set_key], TEMP_DATA_TYPE)
                             # save the number of observations grid
                             io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                    satellite=satellite, algorithm=None,
+                                                                                    satellite=satellite,
                                                                                     suffix=data_sets[set_key][SET_TEMP_NOBS_SUFF_KEY]),
                                                         space_grid_shape, output_path, nobs[set_key], TEMP_DATA_TYPE)
             
@@ -353,7 +359,7 @@ python -m space_time_gridding
 
                     # load the density
                     temp_density = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                             satellite=satellite, algorithm=None,
+                                                                             satellite=satellite,
                                                                              suffix=abstract_data_sets[set_key][SET_TEMP_DENSITY_SUFF_KEY])][:]
                     
                     # only process the final data if it exists
@@ -361,7 +367,7 @@ python -m space_time_gridding
                         
                         # load the sparse space grid
                         var_data = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                            satellite=satellite, algorithm=None,
+                                                                            satellite=satellite,
                                                                             suffix=abstract_data_sets[set_key][SET_TEMP_DATA_SUFF_KEY])][:]
                         
                         # collapse the space grid
@@ -369,14 +375,14 @@ python -m space_time_gridding
                         
                         # save the final array to an appropriately named file
                         io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                satellite=satellite, algorithm=None,
+                                                                                satellite=satellite,
                                                                                 suffix=abstract_data_sets[set_key][SET_FINAL_DATA_SUFF_KEY]),
                                                      space_grid_shape, output_path, final_data,
                                                      TEMP_DATA_TYPE, file_permissions="w")
 
                         # load the nobs file
                         nobs_counts = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                     satellite=satellite, algorithm=None,
+                                                                                     satellite=satellite,
                                                                                      suffix=abstract_data_sets[set_key][SET_TEMP_NOBS_SUFF_KEY])][:]
                         
                         # collapse the nobs for the whole day
@@ -384,7 +390,7 @@ python -m space_time_gridding
                         
                         # save the final nobs array to an appropriately named file
                         io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                satellite=satellite, algorithm=None,
+                                                                                satellite=satellite,
                                                                                 suffix=abstract_data_sets[set_key][SET_FINAL_NOBS_SUFF_KEY]),
                                                      space_grid_shape, output_path,
                                                      nobs_final, TEMP_DATA_TYPE, file_permissions="w")
@@ -504,26 +510,26 @@ python -m space_time_gridding
                     # save the various stats to files
                     
                     # save the std and the mean
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_STD_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_STD_SUFFIX,
                                                  std_values.shape, output_path, std_values,
                                                  TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_MEAN_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_MEAN_SUFFIX,
                                                  mean_values.shape, output_path, mean_values,
                                                  TEMP_DATA_TYPE, file_permissions="w")
 
                     # save the cloud fraction and uncertainty
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_FRACTION_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_FRACTION_SUFFIX,
                                                  cloud_frac.shape, output_path, cloud_frac,
                                                  TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_UNCERTAINTY_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_UNCERTAINTY_SUFFIX,
                                                  uncertainty.shape, output_path, uncertainty,
                                                  TEMP_DATA_TYPE, file_permissions="w")
 
                     # save the number of measurements and observations
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_NUM_MES_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_NUM_MES_SUFFIX,
                                                  num_mes.shape, output_path, num_mes,
                                                  TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + mask_key + DAILY_NOBS_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_NOBS_SUFFIX,
                                                  nobs.shape, output_path, nobs,
                                                  TEMP_DATA_TYPE, file_permissions="w")
 
@@ -539,16 +545,142 @@ python -m space_time_gridding
         The program will not check the dates present. Sparse (in time) data may give
         unexpected results.
         """
-        
+
+        # TODO, this is unfinished
+
+    def flatfile_to_netCDF (*args) :
+        """given an input path, convert the space and time gridded flat files in that path into netCDF files
+
+        This method will output one file per day of space gridded data (multiple variables per file)
+        and one netCDF file per day of daily time gridded data (multiple variables per file).
+        File output names are determined based on the type of data, variables, and date of the data.
+
+        Note: This method can handle processing multiple types of data and data from different dates in the
+        same run, but it can't handle different grid sizes. Please only give it an input directory with
+        data of the same grid size.
+
+        FUTURE: This method does not yet handle multi-day time gridded data.
+        """
+
         # set up some of our input from the caller for easy access
         desired_variables = list(args) if len(args) > 0 else [ ]
         input_path        = options.inputPath
         output_path       = options.outputPath
 
-        # TODO, this is unfinished
+        # check the directory for input files
+        lat_size = None
+        lon_size = None
+        organized_files = { }
+        possible_files = os.listdir(input_path)
+        for file_name in sorted(possible_files) :
 
+            # get information about our files based on their names
+            file_type, var_name, datetimestr, satellite, suffix, var_shape = io_manager.parse_flatfile_name(file_name)
 
-    def make_nobs_look_up_table (*args) :
+            # if we could parse the name as a we expected for a flat file
+            if file_type is not None and datetimestr is not None :
+
+                # note: this is a convenience for declaring dimensions later and won't work if we have differing grid sizes
+                lat_size = int(var_shape[0])
+                lon_size = int(var_shape[1])
+
+                if file_type not in organized_files :
+                    organized_files[file_type] = { }
+
+                if datetimestr not in organized_files[file_type] :
+                    organized_files[file_type][datetimestr] = { }
+
+                if var_name not in organized_files[file_type][datetimestr] :
+                    organized_files[file_type][datetimestr][var_name] = [ ]
+
+                # save information on this file organized by type and date
+                organized_files[file_type][datetimestr][var_name].append([file_name, satellite, suffix, var_shape])
+
+            else :
+                LOG.debug("Unable to parse file name as flat file. This file will not be processed: " + file_name)
+
+        """
+        if len(organized_files.keys()) > 0 :
+            print ("*** files found: ")
+            for file_type in sorted(organized_files.keys()) :
+                print("      type: " + file_type)
+                for datetimestr in sorted(organized_files[file_type].keys()) :
+                    print("            date: " + datetimestr)
+                    for var_name in sorted(organized_files[file_type][datetimestr]) :
+                        print("                  variable: " + var_name)
+                        for list_entry in organized_files[file_type][datetimestr][var_name] :
+                            print("                        " + str(list_entry))
+        """
+
+        # set up the variable workspace so we can load our input files
+        var_workspace = Workspace.Workspace(dir=input_path)
+
+        # for each file type and date stamp, create an output netCDF
+        for file_type in sorted(organized_files.keys()) :
+            for datetimestr in sorted(organized_files[file_type].keys()) :
+
+                # create a blank nc file
+                out_file_path = os.path.abspath(os.path.expanduser(os.path.join(output_path, datetimestr + "_" + file_type + ".nc")))
+                LOG.debug("Creating file for type \"" + file_type + "\" and date stamp \"" + datetimestr + "\": " + out_file_path)
+                out_file = Dataset(out_file_path, mode='w', format='NETCDF4', clobber=True)
+
+                # declare our lat and lon dimensions
+                out_file.createDimension("latitude",  lat_size)
+                out_file.createDimension("longitude", lon_size)
+
+                # create some global attributes
+                setattr(out_file, "GriddingType", file_type)
+                setattr(out_file, "DateTime",     datetimestr)
+
+                # add the data for our variables to the file
+                for var_name in sorted(organized_files[file_type][datetimestr].keys()) :
+
+                    for data_subset in organized_files[file_type][datetimestr][var_name] :
+
+                        [file_name, satellite, suffix, var_shape] = data_subset
+
+                        #print("_________________________________")
+                        #print("file_name: " + str(file_name))
+                        #print("satellite: " + str(satellite))
+                        #print("suffix:    " + str(suffix))
+                        #print("var_shape: " + str(var_shape))
+
+                        LOG.debug("Adding variable information for " + str(var_name) + " " + str(suffix) + " data to output file.")
+
+                        file_stem = file_name.split('.')[0]
+                        raw_data  = var_workspace[file_stem][:]
+
+                        out_variable_name = var_name + "_" + satellite + "_" + suffix
+
+                        # do some checks on the data shape
+                        temp_shape = raw_data.shape
+                        assert (temp_shape[1] == lat_size)
+                        assert (temp_shape[2] == lon_size)
+
+                        # if we need another dimension, generate that
+                        third_dim = None
+                        if temp_shape[0] > 1 :
+                            third_dim = out_variable_name + "_count"
+                            out_file.createDimension(third_dim, temp_shape[0])
+                        else :
+                            raw_data = raw_data[0]
+
+                        #print("data shape: " + str(raw_data.shape))
+
+                        # create the variable with the appropriate dimensions
+                        dims = (third_dim, "latitude", "longitude") if third_dim is not None else ("latitude", "longitude")
+                        out_var_obj = out_file.createVariable(out_variable_name, numpy.float32, dims, fill_value=numpy.nan)
+                        out_var_obj.set_auto_maskandscale(False)
+
+                        # set the variable attributes
+                        setattr(out_var_obj, "satellite",       satellite)
+                        setattr(out_var_obj, "subType",         suffix)
+                        setattr(out_var_obj, "originalVarName", var_name)
+
+                        # set the variable data
+                        out_var_obj[:] = raw_data
+
+    def make_nobs_lut (*args) :
         """given a directory with a multiple daily space gridded files, make a nobs look up table
 
         generally this will expect a month of daily space gridded files and will
@@ -594,9 +726,9 @@ python -m space_time_gridding
                 stem_no_time = stem_no_time[0:stem_no_time.rfind("_")] # get rid of the previous suffix
 
                 # save the number of observations grid
-                io_manager.save_data_to_file(stem_no_time + NOBS_LUT_SUFFIX + set_key,
+                io_manager.save_data_to_file(stem_no_time + "_" + NOBS_LUT_SUFFIX + "_" + set_key,
                                             nobs_data[0].shape, output_path, nobs_data[0], TEMP_DATA_TYPE)
-                io_manager.save_data_to_file(stem_no_time + NOBS_LUT_SUFFIX + ALL_SET,
+                io_manager.save_data_to_file(stem_no_time + "_" + NOBS_LUT_SUFFIX + "_" + ALL_SET,
                                             nobs_data[0].shape, output_path, nobs_data[0], TEMP_DATA_TYPE)
 
     ##### This is the end of the menu selection functions. #####
@@ -610,8 +742,15 @@ python -m space_time_gridding
         # help()
         return 9
     else:
-        # call the function the user named, given the arguments from the command line  
+        start_time = time.time()
+
+        # call the function the user named, given the arguments from the command line
         rc = locals()[args[0]](*args[1:])
+
+        end_time = time.time()
+
+        LOG.info("Elapsed seconds during this run: " + str(end_time - start_time))
+
         return 0 if rc is None else rc
 
 if __name__=='__main__':

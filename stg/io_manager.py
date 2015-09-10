@@ -169,20 +169,17 @@ def save_data_to_file (stem_name, grid_shape, output_path, data_array, data_type
     data_array.astype(data_type).tofile(temp_file_obj)
     temp_file_obj.close()
 
-def build_name_stem (variable_name, date_time=None, satellite=None, algorithm=None, suffix=None) :
+def build_name_stem (variable_name, date_time=None, satellite=None, suffix=None) :
     """given information on what's in the file, build a file stem
     if there's extra info like the date time, satellite, algorithm name, or a suffix
     include that in the file stem as well
     
     the name format is:
-            datestamp_satellite_algorithm_variablename_suffix
+            datestamp_satellite_variablename_suffix
     """
     
     # the basic stem name is just the variable
     stem_name = variable_name
-
-    # if we have an algorithm prefix add that
-    stem_name = algorithm + "_" + stem_name if algorithm is not None else stem_name
     
     # if we have a satellite, add that to the beginning
     stem_name = satellite + "_" + stem_name if satellite is not None else stem_name
@@ -191,11 +188,85 @@ def build_name_stem (variable_name, date_time=None, satellite=None, algorithm=No
     stem_name = date_time.strftime(DATE_STAMP_FORMAT) + "_" + stem_name if date_time is not None else stem_name
 
     # if we have a suffix, add that too
-    stem_name = stem_name + suffix if suffix is not None else stem_name
+    stem_name = stem_name + "_" + suffix if suffix is not None else stem_name
     
     return stem_name
     
     # date_stamp + "_" + var_name + suffix
+
+def parse_flatfile_name (flatfile_name) :
+    """given a flat file name, parse out the things we expect from the stem
+
+    The shape of the variable will also be returned as a convenience.
+
+    Note: there is some ambiguity in the flat file names because some variables use "_", so
+    this method is only guaranteed to work correctly when the date_time, satellite, and suffix were
+    included in the original flat file name stem
+    """
+
+    LOG.debug("Parsing flat file name: " + flatfile_name)
+
+    var_name    = None
+    datetimestr = None
+    satellite   = None
+    suffix      = None
+    var_shape   = None
+    file_type   = None
+
+    # strip off the shape and data type from the end
+    temp_name = flatfile_name.split(".")
+    if len(temp_name) >= 4 :
+        data_type = temp_name[1]
+        var_shape = tuple(reversed(temp_name[2:]))
+    temp_name = temp_name[0] # extract the name stem
+
+    # parse the part of the name not related to the flat file structure
+    _split = temp_name.split("_")
+    if len(_split) >= 4 :
+
+        # detect if there is a date on the front, if so, strip that
+        try :
+            int(_split[0])
+            datetimestr = _split[0]
+            _split = _split[1:]
+        except ValueError :
+            LOG.debug("Unable to strip date from flat file name: " + flatfile_name)
+
+        # detect if there is a satellite on the front, if so, strip that
+        temp_sat = _split[0]
+        if temp_sat in ALL_SATS :
+            satellite = temp_sat
+            _split = _split[1:]
+        else :
+            LOG.debug("Unable to identify satellite name from flat file name: " + flatfile_name)
+
+        # detect if this is a space gridded file
+        if _split[-1] in DAILY_SPACE_SUFFIXES :
+            file_type = DAILY_SPACE_TYPE
+            suffix = _split[-1]
+            _split = _split[:-1]
+        # detect if this is a daily time gridded file
+        elif _split[-1] in DAILY_TIME_SUFFIXES :
+            file_type = DAILY_TIME_TYPE
+            suffix = _split[-3] + "_" + _split[-2] + _split[-1]
+            _split = _split[:-3]
+        # TODO, detect if this is a multi-day time gridded file
+        # detect if this is a nobs look up table
+        elif _split[-1] == NOBS_LUT_SUFFIX :
+            file_type = NOBS_LUT_TYPE
+            suffix = _split[-1]
+            _split = _split[:-1]
+        else :
+            LOG.debug("Unable to determine file type from suffix in flat file name: " + flatfile_name)
+
+        # the remaining part of the name should be the variable name
+        if len(_split) > 0 :
+            var_name = ""
+            for piece in _split :
+                var_name = var_name + "_" + piece
+            var_name = var_name[1:] # take off the first, unneeded underscore
+
+    return file_type, var_name, datetimestr, satellite, suffix, var_shape
 
 def get_date_stamp_from_file_name (file_name) :
     """given a file name starting with a name stem created by build_name_stem, determine the date stamp for the file

@@ -15,10 +15,7 @@ __docformat__ = "restructuredtext en"
 
 from constants import *
 
-import sys
-import logging
-import os
-import re
+import sys, logging, os, re, copy
 
 import numpy
 
@@ -36,30 +33,43 @@ LOG = logging.getLogger(__name__)
 
 # these are suffixes used for temporary files while space gridding
 EXPECTED_TEMP_SUFFIXES    = [
-                             DAY_TEMP_SUFFIX,         NIGHT_TEMP_SUFFIX,
-                             DAY_DENSITY_TEMP_SUFFIX, NIGHT_DENSITY_TEMP_SUFFIX,
-                             DAY_NOBS_TEMP_SUFFIX,    NIGHT_NOBS_TEMP_SUFFIX,
+                             DAY_SET_KEY   + "-" + TEMP_SUFFIX_KEY,
+                             NIGHT_SET_KEY + "-" + TEMP_SUFFIX_KEY,
+                             ALL_SET_KEY   + "-" + TEMP_SUFFIX_KEY,
+                             DAY_SET_KEY   + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                             NIGHT_SET_KEY + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                             ALL_SET_KEY   + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                             DAY_SET_KEY   + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                             NIGHT_SET_KEY + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                             ALL_SET_KEY   + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
                             ]
-
 # these are suffixes used for the final, packed files from space gridding
-EXPECTED_FINAL_SUFFIXES   = [
-                             DAY_SUFFIX,         NIGHT_SUFFIX,
-                             DAY_NOBS_SUFFIX,    NIGHT_NOBS_SUFFIX,
-                            ]
-
-# all the suffixes we can produce while doing space gridding
-ALL_EXPECTED_SUFFIXES     = [
-                             DAY_TEMP_SUFFIX,         NIGHT_TEMP_SUFFIX,
-                             DAY_DENSITY_TEMP_SUFFIX, NIGHT_DENSITY_TEMP_SUFFIX,
-                             DAY_NOBS_TEMP_SUFFIX,    NIGHT_NOBS_TEMP_SUFFIX,
-                             DAY_SUFFIX,              NIGHT_SUFFIX,
-                             DAY_NOBS_SUFFIX,         NIGHT_NOBS_SUFFIX,
-                            ]
-
-# time gridding suffixes
-TIME_FINAL_SUFFIXES       = [
-                             DAY_NUM_MES_SUFFIX, NIGHT_NUM_MES_SUFFIX,
-                            ]
+EXPECTED_SPACE_OUT_SUFFIXES   = [
+                                 DAY_SET_KEY   + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 NIGHT_SET_KEY + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 ALL_SET_KEY   + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 DAY_SET_KEY   + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 NIGHT_SET_KEY + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 ALL_SET_KEY   + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                ]
+# all the suffixes we expect space gridding to use
+ALL_EXPECTED_SPACE_SUFFIXES = [
+                                 DAY_SET_KEY   + "-" + TEMP_SUFFIX_KEY,
+                                 NIGHT_SET_KEY + "-" + TEMP_SUFFIX_KEY,
+                                 ALL_SET_KEY   + "-" + TEMP_SUFFIX_KEY,
+                                 DAY_SET_KEY   + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                                 NIGHT_SET_KEY + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                                 ALL_SET_KEY   + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                                 DAY_SET_KEY   + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                                 NIGHT_SET_KEY + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                                 ALL_SET_KEY   + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                                 DAY_SET_KEY   + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 NIGHT_SET_KEY + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 ALL_SET_KEY   + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 DAY_SET_KEY   + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 NIGHT_SET_KEY + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 ALL_SET_KEY   + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
+                              ]
 
 # the strftime format for date stamping our files
 DATE_STAMP_FORMAT         = "%Y%m%d"
@@ -164,7 +174,7 @@ def save_data_to_file (stem_name, grid_shape, output_path, data_array, data_type
     """
     
     temp_file = fbf.filename(stem_name, data_type, shape=grid_shape)
-    temp_path = os.path.join(output_path, temp_file)
+    temp_path = os.path.join(os.path.abspath(os.path.expanduser(output_path)), temp_file)
     temp_file_obj = open(temp_path, file_permissions)
     data_array.astype(data_type).tofile(temp_file_obj)
     temp_file_obj.close()
@@ -241,18 +251,22 @@ def parse_flatfile_name (flatfile_name) :
             LOG.debug("Unable to identify satellite name from flat file name: " + flatfile_name)
 
         # detect if this is a space gridded file
-        if _split[-1] in DAILY_SPACE_SUFFIXES :
+        if _split[-1].find(DAILY_SPACE_SUFFIX_KEY) >= 0 :
             file_type = DAILY_SPACE_TYPE
             suffix = _split[-1]
             _split = _split[:-1]
         # detect if this is a daily time gridded file
-        elif _split[-1] in DAILY_TIME_SUFFIXES :
+        elif _split[-1].find(DAILY_TIME_SUFFIX_KEY) >= 0 :
             file_type = DAILY_TIME_TYPE
-            suffix = _split[-3] + "_" + _split[-2] + _split[-1]
-            _split = _split[:-3]
-        # TODO, detect if this is a multi-day time gridded file
+            suffix = _split[-1]
+            _split = _split[:-1]
+        # detect if this is a multi-day time gridded file
+        elif _split[-1].find(MULTI_TIME_SUFFIX_KEY) >= 0 :
+            file_type = MULTIDAY_TIME_TYPE
+            suffix = _split[-1]
+            _split = _split[:-1]
         # detect if this is a nobs look up table
-        elif _split[-1] == NOBS_LUT_SUFFIX :
+        elif _split[-1].find(NOBS_LUT_SUFFIX) >= 0 :
             file_type = NOBS_LUT_TYPE
             suffix = _split[-1]
             _split = _split[:-1]

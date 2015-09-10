@@ -11,7 +11,7 @@ the command line input from the user and coordinates the other modules.
 :date:         Jan 2014
 :license:      GNU GPLv3
 
-Copyright (C) 2014 Space Science and Engineering Center (SSEC),
+Copyright (C) 2014 - 2015 Space Science and Engineering Center (SSEC),
  University of Wisconsin-Madison.
 """
 __docformat__ = "restructuredtext en"
@@ -201,8 +201,8 @@ stg make_nobs_lut -i /input/path
         
         # check to make sure our intermediate file names don't exist already
         for var_name in all_vars :
-            
-            for suffix in io_manager.ALL_EXPECTED_SUFFIXES :
+
+            for suffix in io_manager.ALL_EXPECTED_SPACE_SUFFIXES :
                 temp_stem = io_manager.build_name_stem(var_name, date_time=date_time_temp, satellite=satellite, suffix=suffix)
                 temp_name = fbf.filename(temp_stem, TEMP_DATA_TYPE, shape=(space_grid_shape))
                 if os.path.exists(os.path.join(output_path, temp_name)) :
@@ -310,17 +310,17 @@ stg make_nobs_lut -i /input/path
                             # save the gridded data
                             io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
                                                                                     satellite=satellite,
-                                                                                    suffix=data_sets[set_key][SET_TEMP_DATA_SUFF_KEY]),
+                                                                                    suffix=set_key + "-" + TEMP_SUFFIX_KEY),
                                                         space_grid_shape, output_path, space_grids[set_key], TEMP_DATA_TYPE)
                             # save the grid density map
                             io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
                                                                                     satellite=satellite,
-                                                                                    suffix=data_sets[set_key][SET_TEMP_DENSITY_SUFF_KEY]),
+                                                                                    suffix=set_key + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY),
                                                         space_grid_shape, output_path, density_maps[set_key], TEMP_DATA_TYPE)
                             # save the number of observations grid
                             io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
                                                                                     satellite=satellite,
-                                                                                    suffix=data_sets[set_key][SET_TEMP_NOBS_SUFF_KEY]),
+                                                                                    suffix=set_key + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY),
                                                         space_grid_shape, output_path, nobs[set_key], TEMP_DATA_TYPE)
             
             # make sure each file is closed when we're done with it
@@ -360,7 +360,7 @@ stg make_nobs_lut -i /input/path
                     # load the density
                     temp_density = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
                                                                              satellite=satellite,
-                                                                             suffix=abstract_data_sets[set_key][SET_TEMP_DENSITY_SUFF_KEY])][:]
+                                                                             suffix=set_key + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY)][:]
                     
                     # only process the final data if it exists
                     if numpy.sum(temp_density) > 0 :
@@ -368,7 +368,7 @@ stg make_nobs_lut -i /input/path
                         # load the sparse space grid
                         var_data = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
                                                                             satellite=satellite,
-                                                                            suffix=abstract_data_sets[set_key][SET_TEMP_DATA_SUFF_KEY])][:]
+                                                                            suffix=set_key + "-" + TEMP_SUFFIX_KEY)][:]
                         
                         # collapse the space grid
                         final_data = space_gridding.pack_space_grid(var_data, temp_density)
@@ -376,14 +376,14 @@ stg make_nobs_lut -i /input/path
                         # save the final array to an appropriately named file
                         io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
                                                                                 satellite=satellite,
-                                                                                suffix=abstract_data_sets[set_key][SET_FINAL_DATA_SUFF_KEY]),
+                                                                                suffix=set_key + "-" + DAILY_SPACE_SUFFIX_KEY),
                                                      space_grid_shape, output_path, final_data,
                                                      TEMP_DATA_TYPE, file_permissions="w")
 
                         # load the nobs file
                         nobs_counts = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
                                                                                      satellite=satellite,
-                                                                                     suffix=abstract_data_sets[set_key][SET_TEMP_NOBS_SUFF_KEY])][:]
+                                                                                     suffix=set_key + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY)][:]
                         
                         # collapse the nobs for the whole day
                         nobs_final = numpy.sum(nobs_counts, axis=0)
@@ -391,7 +391,7 @@ stg make_nobs_lut -i /input/path
                         # save the final nobs array to an appropriately named file
                         io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
                                                                                 satellite=satellite,
-                                                                                suffix=abstract_data_sets[set_key][SET_FINAL_NOBS_SUFF_KEY]),
+                                                                                suffix=set_key + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY),
                                                      space_grid_shape, output_path,
                                                      nobs_final, TEMP_DATA_TYPE, file_permissions="w")
                         
@@ -460,7 +460,7 @@ stg make_nobs_lut -i /input/path
                 gridded_data = var_workspace[main_stem][:]
 
                 # load the nobs
-                nobs_stem    = this_day[set_key][NOBS_KEY].split('.')[0]
+                nobs_stem    = this_day[set_key][NOBS_SUFFIX].split('.')[0]
                 nobs_data    = var_workspace[nobs_stem][:]
 
                 # get the nobs LUT if it was provided
@@ -510,26 +510,26 @@ stg make_nobs_lut -i /input/path
                     # save the various stats to files
                     
                     # save the std and the mean
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_STD_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + STD_SUFFIX,
                                                  std_values.shape, output_path, std_values,
                                                  TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_MEAN_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + MEAN_SUFFIX,
                                                  mean_values.shape, output_path, mean_values,
                                                  TEMP_DATA_TYPE, file_permissions="w")
 
                     # save the cloud fraction and uncertainty
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_FRACTION_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + CLOUD_FRACTION_SUFFIX,
                                                  cloud_frac.shape, output_path, cloud_frac,
                                                  TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_UNCERTAINTY_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + UNCERTAINTY_SUFFIX,
                                                  uncertainty.shape, output_path, uncertainty,
                                                  TEMP_DATA_TYPE, file_permissions="w")
 
                     # save the number of measurements and observations
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_NUM_MES_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + NUM_MES_SUFFIX,
                                                  num_mes.shape, output_path, num_mes,
                                                  TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "_" + mask_key + "_" + DAILY_NOBS_SUFFIX,
+                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + NOBS_SUFFIX,
                                                  nobs.shape, output_path, nobs,
                                                  TEMP_DATA_TYPE, file_permissions="w")
 
@@ -697,7 +697,7 @@ stg make_nobs_lut -i /input/path
         expected_files_by_date = defaultdict(list)
         possible_files = os.listdir(input_path)
         for file_name in sorted(possible_files) :
-            if file_name.find(DAILY_NOBS_KEY) < 0 :
+            if file_name.find(NOBS_SUFFIX) < 0 :
                 LOG.debug("Disregarding non-nobs file: " + str(file_name))
             else :
                 date_stamp = io_manager.get_date_stamp_from_file_name(file_name)
@@ -720,16 +720,17 @@ stg make_nobs_lut -i /input/path
             for set_key in organized_files[date_stamp].keys() :
 
                 # load the nobs
-                nobs_stem    = organized_files[date_stamp][set_key][NOBS_KEY].split('.')[0]
+                nobs_stem    = organized_files[date_stamp][set_key][NOBS_SUFFIX].split('.')[0]
                 nobs_data    = var_workspace[nobs_stem][:]
                 stem_no_time =    nobs_stem[nobs_stem.find("_")+1:] # get rid of the time
                 stem_no_time = stem_no_time[0:stem_no_time.rfind("_")] # get rid of the previous suffix
 
                 # save the number of observations grid
-                io_manager.save_data_to_file(stem_no_time + "_" + NOBS_LUT_SUFFIX + "_" + set_key,
+                io_manager.save_data_to_file(stem_no_time + "_" + set_key + "-" + NOBS_LUT_SUFFIX,
                                             nobs_data[0].shape, output_path, nobs_data[0], TEMP_DATA_TYPE)
-                io_manager.save_data_to_file(stem_no_time + "_" + NOBS_LUT_SUFFIX + "_" + ALL_SET,
+                io_manager.save_data_to_file(stem_no_time + "_" + ALL_SET_KEY + "-" + NOBS_LUT_SUFFIX,
                                             nobs_data[0].shape, output_path, nobs_data[0], TEMP_DATA_TYPE)
+                # TODO, does the all set key need to be collapsed? also, what if stuff is already in the all set?
 
     ##### This is the end of the menu selection functions. #####
 

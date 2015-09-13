@@ -53,6 +53,7 @@ LATITUDE_NAME               = 'Latitude'
 LONGITUDE_NAME              = 'Longitude'
 SOLAR_ZENITH_NAME           = 'Solar_Zenith'
 SENSOR_ZENITH_NAME          = 'Sensor_Zenith'
+SCAN_LINE_TIME_NAME         = 'Scan_Start_Time'
 CLOUD_MULTI_LAYER_FLAG_NAME = 'Cloud_Multi_Layer_Flag'
 RADIANCE_VARIANCE_NAME      = 'Radiance_Variance'
 BRIGHTNESS_TEMP_NAME        = 'Brightness_Temperature'
@@ -69,7 +70,11 @@ BRIGHTNESS_TEMP_NAME        = 'Brightness_Temperature'
 CLOUD_EFF_RADIUS_NAME       = ('Effective_Particle_Radius', 'Cloud_Effective_Radius')
 
 # a list of our navigation variables
-NAVIGATION_VAR_NAMES        = [LONGITUDE_NAME, LATITUDE_NAME, SOLAR_ZENITH_NAME, SENSOR_ZENITH_NAME]
+NAVIGATION_VAR_NAMES        = [LONGITUDE_NAME,
+                               LATITUDE_NAME,
+                               SOLAR_ZENITH_NAME,
+                               SENSOR_ZENITH_NAME,
+                               SCAN_LINE_TIME_NAME]
 
 # important attribute names
 SCALE_ATTR_NAME             = 'scale_factor'
@@ -174,7 +179,7 @@ EXPECTED_VARIABLES_IN_FILE = set([CLOUD_TOP_PRESS_NAME]) # TODO, this is current
 # TODO, move this up to the general_guidebook
 def _clean_off_path_if_needed(file_name_string) :
     """
-    remove the path from the file if nessicary
+    remove the path from the file if necessary
     """
     
     return os.path.basename(file_name_string)

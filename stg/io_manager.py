@@ -33,46 +33,54 @@ LOG = logging.getLogger(__name__)
 
 # these are suffixes used for temporary files while space gridding
 EXPECTED_TEMP_SUFFIXES    = [
-                             DAY_SET_KEY   + "-" + TEMP_SUFFIX_KEY,
-                             NIGHT_SET_KEY + "-" + TEMP_SUFFIX_KEY,
-                             ALL_SET_KEY   + "-" + TEMP_SUFFIX_KEY,
-                             DAY_SET_KEY   + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
-                             NIGHT_SET_KEY + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
-                             ALL_SET_KEY   + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
-                             DAY_SET_KEY   + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
-                             NIGHT_SET_KEY + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
-                             ALL_SET_KEY   + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                             "%s"   + "-" + TEMP_SUFFIX_KEY,
+                             "%s"   + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
+                             "%s"   + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
                             ]
 # these are suffixes used for the final, packed files from space gridding
 EXPECTED_SPACE_OUT_SUFFIXES   = [
-                                 DAY_SET_KEY   + "-" + DAILY_SPACE_SUFFIX_KEY,
-                                 NIGHT_SET_KEY + "-" + DAILY_SPACE_SUFFIX_KEY,
-                                 ALL_SET_KEY   + "-" + DAILY_SPACE_SUFFIX_KEY,
-                                 DAY_SET_KEY   + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
-                                 NIGHT_SET_KEY + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
-                                 ALL_SET_KEY   + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 "%s"   + "-" + DAILY_SPACE_SUFFIX_KEY,
+                                 "%s"   + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
                                 ]
-# all the suffixes we expect space gridding to use
-ALL_EXPECTED_SPACE_SUFFIXES = [
-                                 DAY_SET_KEY   + "-" + TEMP_SUFFIX_KEY,
-                                 NIGHT_SET_KEY + "-" + TEMP_SUFFIX_KEY,
-                                 ALL_SET_KEY   + "-" + TEMP_SUFFIX_KEY,
-                                 DAY_SET_KEY   + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
-                                 NIGHT_SET_KEY + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
-                                 ALL_SET_KEY   + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY,
-                                 DAY_SET_KEY   + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
-                                 NIGHT_SET_KEY + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
-                                 ALL_SET_KEY   + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY,
-                                 DAY_SET_KEY   + "-" + DAILY_SPACE_SUFFIX_KEY,
-                                 NIGHT_SET_KEY + "-" + DAILY_SPACE_SUFFIX_KEY,
-                                 ALL_SET_KEY   + "-" + DAILY_SPACE_SUFFIX_KEY,
-                                 DAY_SET_KEY   + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
-                                 NIGHT_SET_KEY + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
-                                 ALL_SET_KEY   + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY,
-                              ]
 
 # the strftime format for date stamping our files
 DATE_STAMP_FORMAT         = "%Y%m%d"
+
+def get_list_of_suffixes (gridding_type, suffix_type) :
+    """make a list of suffixes based on the possible times and the type of files these are
+
+    gridding_type is expected to be: DAILY_SPACE_TYPE, DAILY_TIME_TYPE, MULTIDAY_TIME_TYPE, or NOBS_LUT_TYPE
+
+    suffix_type is expected to be: TEMP_FILE_TYPE, FINAL_OUT_FILE_TYPE, or ALL_FILES_TYPE
+    """
+
+    to_return = [ ]
+
+    if gridding_type == DAILY_SPACE_TYPE :
+
+        # add the temp suffixes to the list if desired
+        if suffix_type == TEMP_FILE_TYPE or suffix_type == ALL_FILES_TYPE :
+
+            for time_key in TIME_SETS :
+                for suffix in EXPECTED_TEMP_SUFFIXES :
+                    to_return.append(suffix % time_key)
+
+        if suffix_type == FINAL_OUT_FILE_TYPE or suffix_type == ALL_FILES_TYPE :
+
+            for time_key in TIME_SETS :
+                for suffix in EXPECTED_SPACE_OUT_SUFFIXES :
+                    to_return.append(suffix % time_key)
+
+    elif gridding_type == DAILY_TIME_TYPE :
+        LOG.debug("Daily time gridded file suffixes are not yet provided by this method.") # TODO
+    elif gridding_type == MULTIDAY_TIME_TYPE :
+        LOG.debug("Multi-day time gridded file suffixes are not yet provided by this method.") # TODO
+    elif gridding_type == NOBS_LUT_TYPE :
+        LOG.debug("Num-obs LUT file suffixes are not yet provided by this method.") # TODO
+    else :
+        LOG.debug("Unexpected file type (" + gridding_type + ") requested in get_list_of_suffixes.")
+
+    return to_return
 
 def open_file (file_path) :
     """

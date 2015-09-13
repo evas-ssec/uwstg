@@ -22,6 +22,12 @@ Copyright (C) 2014 - 2015 Space Science and Engineering Center (SSEC),
 """
 __docformat__ = "restructuredtext en"
 
+# some constants for time conversion
+SECONDS_PER_HOUR          = 3600.0
+DEGREES_LON_PER_HOUR      = 15.0
+HOURS_PER_DEGREE_LON      = 24.0 / 360.0
+HOURS_PER_DAY             = 24.0
+
 # constants for the satellite names
 SAT_NOAA_14               = 'noaa-14'
 SAT_NOAA_15               = 'noaa-15'
@@ -52,6 +58,7 @@ INST_MODIS                = "modis"
 # keys for organizing data
 LON_KEY                   = "longitude"
 LAT_KEY                   = "latitude"
+SCAN_LINE_TIME_KEY        = "scanline-time"
 DAY_MASK_KEY              = "day-mask"
 NIGHT_MASK_KEY            = "night-mask"
 SET_MASK_KEY              = "mask"
@@ -69,10 +76,18 @@ NOBS_LUT_SUFFIX           = "lut-nobs" # number of observations look up table fi
 HIGH_MODIFIER             = "high"      # high/mid/low are intended to be used for cloud top pressure categories
 MID_MODIFIER              = "mid"
 LOW_MODIFIER              = "low"
-DAY_SET_KEY               = "daytime"   # day/night/all are intended to separate data from different times of day
-NIGHT_SET_KEY             = "nighttime"
-ALL_SET_KEY               = "alltime"
-TIME_SETS                 = {DAY_SET_KEY, NIGHT_SET_KEY, ALL_SET_KEY}
+DAY_SET_KEY               = "day-time"   # day/night/all are intended to separate data from different times of day
+NIGHT_SET_KEY             = "night-time"
+ALL_SET_KEY               = "all-time"
+MORNING_SET_KEY           = "morning-time"
+AFTERNOON_SET_KEY         = "afternoon-time"
+EVENING_SET_KEY           = "evening-time"
+TIME_SETS                 = {DAY_SET_KEY,
+                             NIGHT_SET_KEY,
+                             ALL_SET_KEY,
+                             MORNING_SET_KEY,
+                             AFTERNOON_SET_KEY,
+                             EVENING_SET_KEY}
 # these represent additional data sub-types in both temporary and final files
 DENSITY_SUFFIX            = "density"
 NOBS_SUFFIX               = "num-observations" # number of observations
@@ -87,6 +102,10 @@ DAILY_SPACE_TYPE          = "daily-space-gridded"
 DAILY_TIME_TYPE           = "daily-time-gridded"
 MULTIDAY_TIME_TYPE        = "multiday-time-gridded"
 NOBS_LUT_TYPE             = "nobs-look-up-table"
+# the next three are for classifying file sets
+TEMP_FILE_TYPE            = "temp-file"
+FINAL_OUT_FILE_TYPE       = "final-output-file"
+ALL_FILES_TYPE            = "all-files"
 
 # for use in the plotting tool
 PLOT_SUFFIX               = "plot_binary"

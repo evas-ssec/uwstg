@@ -29,7 +29,7 @@ import stg.modis_guidebook as modis_guidebook
 LOG = logging.getLogger(__name__)
 
 # the line between day and night for our day/night masks (in solar zenith angle degrees)
-DAY_NIGHT_LINE_DEGREES = 84.0
+DAY_NIGHT_LINE_DEGREES = 85.0
 
 def open_file (file_path) :
     """
@@ -68,11 +68,32 @@ def load_aux_data (file_path, minimum_scan_angle, file_object=None) :
     
     # transform the satellite zenith to scan angle
     scan_angle_data_temp = satellite_zenith_angle_to_scan_angle(sat_zenith_data_temp)
-    
-    # build the day and night masks
-    ok_scan_angle                 =  scan_angle_data_temp   <= minimum_scan_angle
-    aux_data_sets[DAY_MASK_KEY]   = (solar_zenith_data_temp <  DAY_NIGHT_LINE_DEGREES) & ok_scan_angle
-    aux_data_sets[NIGHT_MASK_KEY] = (solar_zenith_data_temp >= DAY_NIGHT_LINE_DEGREES) & ok_scan_angle
+
+    # load the scan line time, this is seconds since 1993-1-1 00:00:00.0 0
+    file_object, aux_data_sets[SCAN_LINE_TIME_KEY] \
+                                        =  load_variable_from_file (modis_guidebook.SCAN_LINE_TIME_NAME,
+                                                                   file_path=file_path, file_object=file_object)
+
+    # transform the scan line time to local time on a 24 hour clock, ignore any leap seconds
+    local_time = ((aux_data_sets[SCAN_LINE_TIME_KEY] / SECONDS_PER_HOUR) + (aux_data_sets[LON_KEY] * HOURS_PER_DEGREE_LON)) % HOURS_PER_DAY
+    # note: This data is now limited to military clock hours.
+    #               0.0 <= local_time < 24.0
+
+    # build the separate time masks
+    aux_data_sets[SET_MASK_KEY] = { }
+    ok_scan_angle                    =  scan_angle_data_temp   <= minimum_scan_angle
+    # "Evening" is SZA > 85 deg. and local time ≥ 12h and < 24h
+    aux_data_sets[SET_MASK_KEY][EVENING_SET_KEY]   = (solar_zenith_data_temp >  DAY_NIGHT_LINE_DEGREES) & (local_time >= 12.0) & ok_scan_angle
+    # "Night" is SZA > 85 deg. and local time ≥ 0h and < 12h
+    aux_data_sets[SET_MASK_KEY][NIGHT_SET_KEY]     = (solar_zenith_data_temp >  DAY_NIGHT_LINE_DEGREES) & (local_time <  12.0) & ok_scan_angle
+    # "Morning" is SZA ≤ 85 deg. and local time ≥ 0h and < 12h
+    aux_data_sets[SET_MASK_KEY][MORNING_SET_KEY]   = (solar_zenith_data_temp <= DAY_NIGHT_LINE_DEGREES) & (local_time <  12.0) & ok_scan_angle
+    # "Afternoon" is SZA ≤ 85 deg. and local time ≥ 12h and < 24h
+    aux_data_sets[SET_MASK_KEY][AFTERNOON_SET_KEY] = (solar_zenith_data_temp <= DAY_NIGHT_LINE_DEGREES) & (local_time >= 12.0) & ok_scan_angle
+    # Note: if you only want Day and Night, combine
+    #       Evening + Night = Night
+    #       or
+    #       Morning + Afternoon = Day
     
     return file_object, aux_data_sets
 
@@ -180,13 +201,16 @@ def get_abstract_data_sets (do_separate_day_night=True) :
     
     sets_to_return = { }
 
+    # separate the time sets
     if do_separate_day_night :
 
-        # build the day set
-        sets_to_return[DAY_SET_KEY] = { }
+        # build the day sets
+        sets_to_return[MORNING_SET_KEY]   = { }
+        sets_to_return[AFTERNOON_SET_KEY] = { }
 
-        # build the night set
-        sets_to_return[NIGHT_SET_KEY] = { }
+        # build the night sets
+        sets_to_return[EVENING_SET_KEY]   = { }
+        sets_to_return[NIGHT_SET_KEY]     = { }
 
     else :
 
@@ -201,32 +225,31 @@ def determine_data_sets(aux_data, do_separate_day_night=True) :
     Each data set is defined by a constant name, a mask to select that set, the lon and lat data for that set,
     it's expected suffixes for temporary density/nobs/data, and it's expected suffix for the final output data/nobs
     """
-    
+
+    # TODO, to re-add day/night instead of the four time categories, changes would need to happen here
+
     sets_to_return = get_abstract_data_sets(do_separate_day_night=do_separate_day_night)
 
+    # keep the time ranges separated if that's what the user asked for
     if do_separate_day_night :
-        # build the day set
 
-        # set the mask
-        sets_to_return[DAY_SET_KEY][SET_MASK_KEY] = aux_data[DAY_MASK_KEY]
-        # set the lon and lat data
-        sets_to_return[DAY_SET_KEY][LON_KEY]      = aux_data[LON_KEY]
-        sets_to_return[DAY_SET_KEY][LAT_KEY]      = aux_data[LAT_KEY]
+        # build the various time sets
+        for time_key in aux_data[SET_MASK_KEY].keys() :
+            sets_to_return[time_key][SET_MASK_KEY] = aux_data[SET_MASK_KEY][time_key]
+            sets_to_return[time_key][LON_KEY]      = aux_data[LON_KEY]
+            sets_to_return[time_key][LAT_KEY]      = aux_data[LAT_KEY]
 
-        # build the night set
+    else : # create a set to represent "all" the valid times
 
-        # set the mask
-        sets_to_return[NIGHT_SET_KEY][SET_MASK_KEY] = aux_data[NIGHT_MASK_KEY]
-        # set the lon and lat data
-        sets_to_return[NIGHT_SET_KEY][LON_KEY]      = aux_data[LON_KEY]
-        sets_to_return[NIGHT_SET_KEY][LAT_KEY]      = aux_data[LAT_KEY]
-
-    else :
-        # build a set that will include all the data
-        sets_to_return[ALL_SET_KEY][SET_MASK_KEY] = numpy.ones(aux_data[LON_KEY].shape, dtype=numpy.bool)
-        # set the lon and lat data
+        sets_to_return[ALL_SET_KEY][SET_MASK_KEY] = None
         sets_to_return[ALL_SET_KEY][LON_KEY]      = aux_data[LON_KEY]
         sets_to_return[ALL_SET_KEY][LAT_KEY]      = aux_data[LAT_KEY]
+
+        # build up the all mask
+        for time_key in aux_data[SET_MASK_KEY].keys() :
+            sets_to_return[ALL_SET_KEY][SET_MASK_KEY] = aux_data[SET_MASK_KEY][time_key] \
+                                                        if sets_to_return[ALL_SET_KEY][SET_MASK_KEY] is None \
+                                                        else sets_to_return[ALL_SET_KEY][SET_MASK_KEY] | aux_data[SET_MASK_KEY][time_key]
     
     # return the final sets
     return sets_to_return

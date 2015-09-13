@@ -200,9 +200,10 @@ stg make_nobs_lut -i /input/path
                 expected_num_files    = general_guidebook.get_expected_files_per_day(instrument)  if expected_num_files is None else expected_num_files
         
         # check to make sure our intermediate file names don't exist already
+        expected_space_file_suffixes = io_manager.get_list_of_suffixes(DAILY_SPACE_TYPE, ALL_FILES_TYPE)
         for var_name in all_vars :
 
-            for suffix in io_manager.ALL_EXPECTED_SPACE_SUFFIXES :
+            for suffix in expected_space_file_suffixes :
                 temp_stem = io_manager.build_name_stem(var_name, date_time=date_time_temp, satellite=satellite, suffix=suffix)
                 temp_name = fbf.filename(temp_stem, TEMP_DATA_TYPE, shape=(space_grid_shape))
                 if os.path.exists(os.path.join(output_path, temp_name)) :
@@ -399,7 +400,8 @@ stg make_nobs_lut -i /input/path
                         LOG.warn("No " + set_key + " data was found for variable " + variable_name + ". Corresponding files will not be written.")
         
         # remove the extra temporary files in the output directory
-        remove_suffixes = ["*" + p + "*" for p in io_manager.EXPECTED_TEMP_SUFFIXES]
+        temp_suffix_list = io_manager.get_list_of_suffixes(DAILY_SPACE_TYPE, TEMP_FILE_TYPE)
+        remove_suffixes = ["*" + p + "*" for p in temp_suffix_list]
         remove_file_patterns(output_path, remove_suffixes)
     
     def time_gridding_day(*args) :

@@ -634,6 +634,24 @@ stg make_nobs_lut -i /input/path
                 setattr(out_file, "GriddingType", file_type)
                 setattr(out_file, "DateTime",     datetimestr)
 
+                # create the lat/lon grids
+                lat_array = numpy.linspace( -90.0,  90.0, lat_size)
+                lon_array = numpy.linspace(-180.0, 180.0, lon_size+1)[0:-1] # since -180 and 180 are the same point, only include one of the two
+                lat_data = numpy.array([lat_array,]*lon_size).transpose()
+                lon_data = numpy.array([lon_array,]*lat_size)
+                out_var_obj = out_file.createVariable("latitude",  numpy.float32, ("latitude"), fill_value=numpy.nan)
+                out_var_obj.set_auto_maskandscale(False)
+                out_var_obj[:] = lat_array
+                out_var_obj = out_file.createVariable("longitude", numpy.float32, ("longitude"), fill_value=numpy.nan)
+                out_var_obj.set_auto_maskandscale(False)
+                out_var_obj[:] = lon_array
+                out_var_obj = out_file.createVariable("latitude-grid",  numpy.float32, ("latitude", "longitude"), fill_value=numpy.nan)
+                out_var_obj.set_auto_maskandscale(False)
+                out_var_obj[:] = lat_data
+                out_var_obj = out_file.createVariable("longitude-grid", numpy.float32, ("latitude", "longitude"), fill_value=numpy.nan)
+                out_var_obj.set_auto_maskandscale(False)
+                out_var_obj[:] = lon_data
+
                 # add the data for our variables to the file
                 for var_name in sorted(organized_files[file_type][datetimestr].keys()) :
 

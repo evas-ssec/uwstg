@@ -23,6 +23,10 @@ from stg.stg_util  import make_index_grid
 
 LOG = logging.getLogger(__name__)
 
+# this represents the time range of data that we will consider the "same overpass"
+# for the purposes of putting it in the same grid cell when space gridding data
+SAME_TIME_RANGE_SECONDS = 1800.0
+
 def calculate_index_from_nav_data (lat_data, lon_data, grid_degrees) :
     """given the lon/lat data, calculate where the elements will be space gridded
 

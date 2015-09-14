@@ -198,7 +198,9 @@ def unscale_data (data, fill_mask=None, scale_factor=None, offset=None) :
     return to_return
 
 def get_abstract_data_sets (do_separate_day_night=True) :
-    
+    """get a basic dictionary with space for each of the expected data sets
+    """
+
     sets_to_return = { }
 
     # separate the time sets
@@ -222,8 +224,8 @@ def get_abstract_data_sets (do_separate_day_night=True) :
 def determine_data_sets(aux_data, do_separate_day_night=True) :
     """separate modis data into day and night sets if desired
     
-    Each data set is defined by a constant name, a mask to select that set, the lon and lat data for that set,
-    it's expected suffixes for temporary density/nobs/data, and it's expected suffix for the final output data/nobs
+    Each data set is defined by a constant name, a mask to select that set, the scan line times, lon, and lat data
+    for that set
     """
 
     # TODO, to re-add day/night instead of the four time categories, changes would need to happen here
@@ -235,15 +237,17 @@ def determine_data_sets(aux_data, do_separate_day_night=True) :
 
         # build the various time sets
         for time_key in aux_data[SET_MASK_KEY].keys() :
-            sets_to_return[time_key][SET_MASK_KEY] = aux_data[SET_MASK_KEY][time_key]
-            sets_to_return[time_key][LON_KEY]      = aux_data[LON_KEY]
-            sets_to_return[time_key][LAT_KEY]      = aux_data[LAT_KEY]
+            sets_to_return[time_key][SET_MASK_KEY]       = aux_data[SET_MASK_KEY][time_key]
+            sets_to_return[time_key][LON_KEY]            = aux_data[LON_KEY]
+            sets_to_return[time_key][LAT_KEY]            = aux_data[LAT_KEY]
+            sets_to_return[time_key][SCAN_LINE_TIME_KEY] = aux_data[SCAN_LINE_TIME_KEY]
 
     else : # create a set to represent "all" the valid times
 
-        sets_to_return[ALL_SET_KEY][SET_MASK_KEY] = None
-        sets_to_return[ALL_SET_KEY][LON_KEY]      = aux_data[LON_KEY]
-        sets_to_return[ALL_SET_KEY][LAT_KEY]      = aux_data[LAT_KEY]
+        sets_to_return[ALL_SET_KEY][SET_MASK_KEY]        = None
+        sets_to_return[ALL_SET_KEY][LON_KEY]             = aux_data[LON_KEY]
+        sets_to_return[ALL_SET_KEY][LAT_KEY]             = aux_data[LAT_KEY]
+        sets_to_return[ALL_SET_KEY][SCAN_LINE_TIME_KEY]  = aux_data[SCAN_LINE_TIME_KEY]
 
         # build up the all mask
         for time_key in aux_data[SET_MASK_KEY].keys() :

@@ -26,6 +26,7 @@ from datetime import datetime
 LOG = logging.getLogger(__name__)
 
 # these are constants for separating the cloud top pressure in to low/mid/high
+# TODO, this needs to be revised
 """
 high pressure is < 440
 low  pressure is > 680

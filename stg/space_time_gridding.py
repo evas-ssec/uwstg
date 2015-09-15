@@ -418,7 +418,16 @@ stg make_nobs_lut -i /input/path
 
                                         # some other calculations to support our masking
                                         better_new_angle = numpy.nanmax(aux_angles[set_key], axis=0) < numpy.nanmax(current_set["angles"], axis=0)
-                                        time_diff        = numpy.abs(numpy.nanmean(current_set["times"], axis=0) - numpy.nanmean(aux_times[set_key], axis=0))
+                                        temp_finite_mask = numpy.isfinite(current_set["times"])
+                                        temp_times       = current_set["times"]
+                                        temp_times[~temp_finite_mask] = 0.0
+                                        old_time_avg     = numpy.sum(temp_times, axis=0) / numpy.sum(current_set["density"], axis=0)
+                                        temp_finite_mask = numpy.isfinite(aux_times[set_key])
+                                        temp_times       = aux_times[set_key]
+                                        temp_times[~temp_finite_mask] = 0.0
+                                        new_time_avg     = numpy.sum(temp_times, axis=0) / numpy.sum(density_maps[set_key], axis=0)
+                                        #time_diff        = numpy.abs(numpy.nanmean(current_set["times"], axis=0) - numpy.nanmean(aux_times[set_key], axis=0))
+                                        time_diff        = numpy.abs(old_time_avg - new_time_avg)
 
                                         # figure out the masks that will control how we change our data
 

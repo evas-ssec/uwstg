@@ -63,11 +63,11 @@ def load_aux_data (file_path, minimum_scan_angle, file_object=None) :
     # load the angles to make masks
     file_object, solar_zenith_data_temp = load_variable_from_file (modis_guidebook.SOLAR_ZENITH_NAME,
                                                                    file_path=file_path, file_object=file_object)
-    file_object, sat_zenith_data_temp   = load_variable_from_file (modis_guidebook.SENSOR_ZENITH_NAME,
+    file_object, aux_data_sets[SENSOR_ZENITH_ANGLE_KEY] = load_variable_from_file (modis_guidebook.SENSOR_ZENITH_NAME,
                                                                    file_path=file_path, file_object=file_object)
     
     # transform the satellite zenith to scan angle
-    scan_angle_data_temp = satellite_zenith_angle_to_scan_angle(sat_zenith_data_temp)
+    scan_angle_data_temp = satellite_zenith_angle_to_scan_angle(aux_data_sets[SENSOR_ZENITH_ANGLE_KEY])
 
     # load the scan line time, this is seconds since 1993-1-1 00:00:00.0 0
     file_object, aux_data_sets[SCAN_LINE_TIME_KEY] \
@@ -241,6 +241,7 @@ def determine_data_sets(aux_data, do_separate_day_night=True) :
             sets_to_return[time_key][LON_KEY]            = aux_data[LON_KEY]
             sets_to_return[time_key][LAT_KEY]            = aux_data[LAT_KEY]
             sets_to_return[time_key][SCAN_LINE_TIME_KEY] = aux_data[SCAN_LINE_TIME_KEY]
+            sets_to_return[time_key][SENSOR_ZENITH_ANGLE_KEY] = aux_data[SENSOR_ZENITH_ANGLE_KEY]
 
     else : # create a set to represent "all" the valid times
 
@@ -248,6 +249,7 @@ def determine_data_sets(aux_data, do_separate_day_night=True) :
         sets_to_return[ALL_SET_KEY][LON_KEY]             = aux_data[LON_KEY]
         sets_to_return[ALL_SET_KEY][LAT_KEY]             = aux_data[LAT_KEY]
         sets_to_return[ALL_SET_KEY][SCAN_LINE_TIME_KEY]  = aux_data[SCAN_LINE_TIME_KEY]
+        sets_to_return[ALL_SET_KEY][SENSOR_ZENITH_ANGLE_KEY] = aux_data[SENSOR_ZENITH_ANGLE_KEY]
 
         # build up the all mask
         for time_key in aux_data[SET_MASK_KEY].keys() :

@@ -39,7 +39,7 @@ def calculate_index_from_nav_data (lat_data, lon_data, grid_degrees) :
     
     return lat_index, lon_index
 
-def space_grid_data (grid_lat_size, grid_lon_size, data, lat_indexes, lon_indexes ) :
+def space_grid_data (grid_lat_size, grid_lon_size, data, lat_indexes, lon_indexes, aux_time=None, aux_sensor_zenith_angle=None) :
     """given lon/lat indexes, data, and the grid size, sort the data into a space grid
     
     returns the filled space grid (empty space is NaN values), a density map of where the data is, and the size of the deepest bucket
@@ -59,22 +59,26 @@ def space_grid_data (grid_lat_size, grid_lon_size, data, lat_indexes, lon_indexe
         if numpy.isfinite(data[index]) :
             density_map[lat_indexes[index], lon_indexes[index]] += 1
     max_depth = numpy.max(density_map)
-    
-    #print ("max depth: " + str(max_depth))
-    
+
     # create the space grids for this variable
     space_grid = numpy.ones((max_depth, grid_lat_size, grid_lon_size), dtype=numpy.float32) * numpy.nan #TODO, dtype should be set dynamically
     temp_depth = numpy.zeros(space_grid_shape)
-    
+    grid_time  = numpy.ones((max_depth, grid_lat_size, grid_lon_size), dtype=numpy.float32) * numpy.nan if aux_time                is not None else None
+    grid_angle = numpy.ones((max_depth, grid_lat_size, grid_lon_size), dtype=numpy.float32) * numpy.nan if aux_sensor_zenith_angle is not None else None
+
     # put the variable data into the space grid
     # FUTURE, figure out how to do this in native numpy ops instead of loops
     for index in range(data.size) :
         if numpy.isfinite(data[index]) :
             depth = temp_depth[lat_indexes[index], lon_indexes[index]]
             space_grid[depth,  lat_indexes[index], lon_indexes[index]] = data[index]
+            if grid_time is not None :
+                grid_time[depth,  lat_indexes[index], lon_indexes[index]] = aux_time[index]
+            if grid_angle is not None :
+                grid_angle[depth,  lat_indexes[index], lon_indexes[index]] = aux_sensor_zenith_angle[index]
             temp_depth[        lat_indexes[index], lon_indexes[index]] += 1
 
-    return space_grid, density_map, nobs_map, max_depth
+    return space_grid, density_map, nobs_map, max_depth, grid_time, grid_angle
 
 def pack_space_grid (data_array, density_array) :
     """

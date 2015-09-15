@@ -43,6 +43,9 @@ import stg.time_gridding     as time_gridding
 # TODO, in the long run handle the dtype more flexibly
 TEMP_DATA_TYPE = numpy.dtype(numpy.float32)
 
+# how much extra we will expand arrays by
+ARRAY_GROWTH_FACTOR = 1.25
+
 # have confirmed with Nadia that this is the cutoff she wants for now
 EXPECTED_FRACTION_OF_FILES_PER_DAY = 2.0 / 3.0
 
@@ -78,6 +81,25 @@ def _safe_remove(fn):
         os.remove(fn)
     except StandardError:
         LOG.error("Could not remove %s" % fn)
+
+def _expand_array_if_needed (in_array, min_size, fill_value=numpy.nan) :
+    """expand the first dimension of the in_array to be at least min_size size, keeping the existing array data
+
+    Note: this currently expects three dimensional numpy arrays
+    """
+
+    to_return = in_array
+
+    if in_array.shape[0] < min_size :
+
+        new_shape = (min_size, in_array.shape[1], in_array.shape[2])
+
+        LOG.debug("Expanding array to size: " + str(new_shape))
+
+        to_return = numpy.ones(new_shape, dtype=in_array.dtype) * fill_value
+        to_return[0:in_array.shape[0], :, :] = in_array
+
+    return to_return
 
 def main():
     import optparse
@@ -129,6 +151,9 @@ stg make_nobs_lut -i /input/path
                       help="a long term look up table for use with the --dynamic_nobs_cutoff option")
     parser.add_option('-t', '--day_night_together', dest='keep_day_night_together',
                       action="store_true", default=False, help="instead of separating day and night data, process them together")
+    parser.add_option('-m', '--multiple_overpasses_per_cell', dest="allow_multiple_overpasses_per_cell",
+                      action="store_true", default=False, help="allow multiple overpasses to fall in the same grid cell; "
+                                                               "the default is to only allow the best overpass (by sensor angle)")
     
     # parse the uers options from the command line
     options, args = parser.parse_args()
@@ -167,7 +192,11 @@ stg make_nobs_lut -i /input/path
         min_scan_angle     = options.minScanAngle
         grid_degrees       = float(options.gridDegrees)
         do_day_night       = not options.keep_day_night_together
-        
+        do_multi_overpass  = options.allow_multiple_overpasses_per_cell
+
+        temp_str = "will allow" if do_multi_overpass else "will not allow"
+        LOG.debug("Space gridding " + temp_str + " multiple overpasses per grid cell.")
+
         # determine the grid size in number of elements
         grid_lon_size      = int(math.ceil(360.0 / grid_degrees))
         grid_lat_size      = int(math.ceil(180.0 / grid_degrees))
@@ -209,127 +238,240 @@ stg make_nobs_lut -i /input/path
                 if os.path.exists(os.path.join(output_path, temp_name)) :
                     LOG.warn ("Cannot process files because matching temporary or output files exist in the output directory.")
                     return
-        
+
         # loop to deal with data from each of the files
         failed_files       = 0
         sucessful_files    = 0
         abstract_data_sets = io_manager.get_expected_abstract_sets(instrument, separate_day_night=do_day_night)
+        collected_data     = { }
         for each_file in sorted(possible_files) :
-            
+
             full_file_path = os.path.join(input_path, each_file)
-            
+
             LOG.debug("Processing file: " + full_file_path)
-            
+
             # load the aux data
             file_object, temp_aux_data = io_manager.load_aux_data(full_file_path, min_scan_angle)
             # figure out what data sets we need to process
             data_sets = io_manager.get_expected_data_sets_from_aux_data (instrument, temp_aux_data, do_separate_day_night=do_day_night)
-            
+
             ok_file     = True
             lon_indices = { }
             lat_indices = { }
             try :
-                
+
                 # calculate the indices for the space grid based on the navigation data
                 # (we can do this now since the lon/lat is the same for each variable in the file)
                 for set_key in data_sets.keys() :
-                    
+
                     set_mask      = data_sets[set_key][SET_MASK_KEY]
                     temp_lon_data = data_sets[set_key][LON_KEY][set_mask]
                     temp_lat_data = data_sets[set_key][LAT_KEY][set_mask]
-                    
+
                     lat_index, lon_index = space_gridding.calculate_index_from_nav_data(temp_lat_data, temp_lon_data, grid_degrees)
                     lat_indices[set_key] = lat_index
                     lon_indices[set_key] = lon_index
-                
+
             except Exception, e :
-                
+
                 LOG.warn("Unable to process basic space gridding for file: " + full_file_path)
                 LOG.warn("This file will not be processed.")
-                
+
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 LOG.debug(traceback.format_exception(exc_type, exc_value, exc_traceback))
-                
+
                 ok_file       = False
                 failed_files += 1
 
             # if the file looks alright so far, continue processing it
             if ok_file :
-                
+
                 # loop to load each variable in the file and process it
                 for variable_name in expected_vars[each_file] :
-                    
+
                     LOG.debug("Processing variable: " + variable_name)
-                    
+
                     # load the variable
                     file_object, var_data = io_manager.load_variable_from_file (variable_name,
                                                                                 file_path=full_file_path,
                                                                                 file_object=file_object)
-                    
+
                     # split the variable data by sets
-                    separated_data = { }
+                    separated_data   = { }
+                    separated_time   = { }
+                    separated_angles = { }
                     for set_key in data_sets.keys() :
-                        
-                        separated_data[set_key] = var_data[data_sets[set_key][SET_MASK_KEY]]
-                    
+
+                        separated_data  [set_key] =                                    var_data[data_sets[set_key][SET_MASK_KEY]]
+                        separated_time  [set_key] = data_sets[set_key][SCAN_LINE_TIME_KEY]     [data_sets[set_key][SET_MASK_KEY]]
+                        separated_angles[set_key] = data_sets[set_key][SENSOR_ZENITH_ANGLE_KEY][data_sets[set_key][SET_MASK_KEY]]
+
                     ok_file = True
                     space_grids  = { }
                     density_maps = { }
                     nobs         = { }
                     max_depths   = { }
+                    aux_times    = { }
+                    aux_angles   = { }
                     try :
-                        
+
                         # space grid the data using the indexes we calculated earlier
                         for set_key in data_sets.keys() :
-                            temp_space_grid, temp_density_map, temp_nobs, temp_max_depth = space_gridding.space_grid_data(grid_lat_size,
-                                                                                                                          grid_lon_size,
-                                                                                                                          separated_data[set_key],
-                                                                                                                          lat_indices[set_key],
-                                                                                                                          lon_indices[set_key])
+
+                            # note: also preserve useful aux data for this file
+                            temp_space_grid, temp_density_map, temp_nobs, temp_max_depth, temp_aux_time, temp_aux_angle = \
+                                                                space_gridding.space_grid_data(grid_lat_size,
+                                                                                               grid_lon_size,
+                                                                                               separated_data[set_key],
+                                                                                               lat_indices[set_key],
+                                                                                               lon_indices[set_key],
+                                                                                               aux_time=separated_time[set_key],
+                                                                                               aux_sensor_zenith_angle=separated_angles[set_key])
                             space_grids[set_key]  = temp_space_grid
                             density_maps[set_key] = temp_density_map
                             nobs[set_key]         = temp_nobs
                             max_depths[set_key]   = temp_max_depth
-                        
+                            aux_times[set_key]    = temp_aux_time
+                            aux_angles[set_key]   = temp_aux_angle
+
                     except Exception, e :
-                    
+
                         LOG.warn("Unable to process variable data space gridding for file: " + full_file_path)
                         LOG.warn("This variable will not be processed.")
-                        
+
                         exc_type, exc_value, exc_traceback = sys.exc_info()
                         LOG.debug(traceback.format_exception(exc_type, exc_value, exc_traceback))
-                        
+
                         ok_file       = False
                         failed_files += 1
 
                     # if the data in the file looks ok so far, save it to the output
                     if ok_file :
-                        
+
+                        #print("space grid shape: " + str(space_grids[set_key].shape))
+
                         # save the space grids and density info for this variable and it's density map to files
                         for set_key in data_sets.keys() :
-                            
-                            # save the gridded data
-                            io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                    satellite=satellite,
-                                                                                    suffix=set_key + "-" + TEMP_SUFFIX_KEY),
-                                                        space_grid_shape, output_path, space_grids[set_key], TEMP_DATA_TYPE)
-                            # save the grid density map
-                            io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                    satellite=satellite,
-                                                                                    suffix=set_key + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY),
-                                                        space_grid_shape, output_path, density_maps[set_key], TEMP_DATA_TYPE)
-                            # save the number of observations grid
-                            io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
-                                                                                    satellite=satellite,
-                                                                                    suffix=set_key + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY),
-                                                        space_grid_shape, output_path, nobs[set_key], TEMP_DATA_TYPE)
-            
+
+                            if do_multi_overpass :
+
+                                # save the gridded data
+                                io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
+                                                                                        satellite=satellite,
+                                                                                        suffix=set_key + "-" + TEMP_SUFFIX_KEY),
+                                                            space_grid_shape, output_path, space_grids[set_key], TEMP_DATA_TYPE)
+                                # save the grid density map
+                                io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
+                                                                                        satellite=satellite,
+                                                                                        suffix=set_key + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY),
+                                                            space_grid_shape, output_path, density_maps[set_key], TEMP_DATA_TYPE)
+                                # save the number of observations grid
+                                io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
+                                                                                        satellite=satellite,
+                                                                                        suffix=set_key + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY),
+                                                            space_grid_shape, output_path, nobs[set_key], TEMP_DATA_TYPE)
+
+                            else :
+
+                                # if we haven't processed this variable yet, add a dictionary for it
+                                if variable_name not in collected_data :
+                                    collected_data[variable_name] = { }
+
+                                # only process the output if we have output to process
+                                temp_depth = space_grids[set_key].shape[0]
+                                if temp_depth > 0 :
+
+                                    # if there isn't any data for this set in our collection, just put what we have in to start with
+                                    if set_key not in collected_data[variable_name] :
+
+                                        collected_data[variable_name][set_key] = { }
+                                        current_set = collected_data[variable_name][set_key]
+
+                                        # save the density and nobs (the 2D arrays)
+                                        current_set["density"] = density_maps[set_key]
+                                        current_set["nobs"]    = nobs[set_key]
+
+                                        # figure out what the depth we need is
+                                        temp_depth = numpy.max(density_maps[set_key]) * 2 # start with twice the space we need
+
+                                        # save the space gridded data, the times, and angles (the 3D arrays)
+                                        new_depth = int(space_grids[set_key].shape[0] * ARRAY_GROWTH_FACTOR) # expand the arrays a little extra
+                                        current_set["space-gridded-data"] = _expand_array_if_needed(space_grids[set_key], new_depth)
+                                        current_set["times"]              = _expand_array_if_needed(  aux_times[set_key], new_depth)
+                                        current_set["angles"]             = _expand_array_if_needed( aux_angles[set_key], new_depth)
+
+                                    else : # when we already have data for this set key, incorporate the new overpass if desired
+
+                                        # there are several possible cases here:
+                                        #           there is no data in that cell of the grid           <- use data from the new file
+                                        #           there is data in that cell, and it's the same orbit <- add the new data to the end of the old data
+                                        #           there is data in that cell, it's a diff orbit       <- either replace the data in that cell or ignore the new data
+                                        #                                                               (whether you replace or ignore depends on the sensor zenith angle)
+
+                                        # for convenience
+                                        current_set = collected_data[variable_name][set_key]
+
+                                        # pre-calculate where there is any data at all in our old and new data sets
+                                        have_old_data  = numpy.any(numpy.isfinite(current_set["space-gridded-data"]), axis=0)
+                                        have_new_data  = numpy.any(numpy.isfinite(space_grids[set_key]), axis=0)
+                                        both_have_data = have_old_data & have_new_data
+
+                                        # some other calculations to support our masking
+                                        better_new_angle = numpy.nanmax(aux_angles[set_key], axis=0) < numpy.nanmax(current_set["angles"], axis=0)
+                                        time_diff        = numpy.abs(numpy.nanmean(current_set["times"], axis=0) - numpy.nanmean(aux_times[set_key], axis=0))
+
+                                        # figure out the masks that will control how we change our data
+
+                                        # mask of the places where there is data in the new file, but we had none before
+                                        have_only_new_data_mask = (~ have_old_data) & have_new_data
+                                        # mask of the places where there is data in both and it's the same orbits
+                                        use_both_mask = both_have_data & (time_diff <= space_gridding.SAME_TIME_RANGE_SECONDS)
+                                        # mask of the places where there is data in both and it's different orbit
+                                        use_only_new_data_mask = both_have_data & (time_diff > space_gridding.SAME_TIME_RANGE_SECONDS) & (better_new_angle)
+                                        # Note: We will choose the orbit with the smallest maximum observed sensor zenith angle
+                                        # in the grid cell – especially necessary at high latitudes
+                                        use_new = have_only_new_data_mask | use_only_new_data_mask
+
+                                        # expand the arrays if needed
+                                        o_depth   = current_set["space-gridded-data"].shape[0] # the depth of the old array
+                                        n_depth   = numpy.nanmax(density_maps[set_key][use_new]) # get the max depth of the new array
+                                        c_depth   = numpy.nanmax(current_set["density"][use_both_mask] + density_maps[set_key][use_both_mask]) # the combined depth
+                                        new_depth = o_depth   if o_depth   >= n_depth else int(n_depth * ARRAY_GROWTH_FACTOR)
+                                        new_depth = new_depth if new_depth >= c_depth else int(c_depth * ARRAY_GROWTH_FACTOR)
+                                        new_space                         = _expand_array_if_needed(space_grids[set_key],              new_depth)
+                                        new_times                         = _expand_array_if_needed(  aux_times[set_key],              new_depth)
+                                        new_angles                        = _expand_array_if_needed( aux_angles[set_key],              new_depth)
+                                        current_set["space-gridded-data"] = _expand_array_if_needed(current_set["space-gridded-data"], new_depth)
+                                        current_set["times"]              = _expand_array_if_needed(current_set["times"],              new_depth)
+                                        current_set["angles"]             = _expand_array_if_needed(current_set["angles"],             new_depth)
+
+                                        # replace any data where we are going to use just the new set
+                                        current_set["times"]             [:, use_new] =             new_times[:, use_new]
+                                        current_set["angles"]            [:, use_new] =            new_angles[:, use_new]
+                                        current_set["space-gridded-data"][:, use_new] =             new_space[:, use_new]
+                                        current_set["density"]              [use_new] = density_maps[set_key]   [use_new]
+                                        current_set["nobs"]                 [use_new] =         nobs[set_key]   [use_new]
+
+                                        # combine the data where we want to use both sets TODO, how can I do this in a more numpy and python friendly way?
+                                        temp_shape = current_set["space-gridded-data"].shape
+                                        for lat in range(temp_shape[1]) :
+                                            for lon in range(temp_shape[2]) :
+                                                if use_both_mask[lat, lon] :
+                                                    prev_num     = current_set["density"][lat, lon]
+                                                    num_adding   = density_maps[set_key] [lat, lon]
+                                                    new_total    = prev_num + num_adding
+                                                    current_set["times"]             [prev_num:new_total, lat, lon] =  new_times[:num_adding, lat, lon]
+                                                    current_set["angles"]            [prev_num:new_total, lat, lon] = new_angles[:num_adding, lat, lon]
+                                                    current_set["space-gridded-data"][prev_num:new_total, lat, lon] =  new_space[:num_adding, lat, lon]
+                                        current_set["density"][use_both_mask] += density_maps[set_key][use_both_mask]
+                                        current_set["nobs"]   [use_both_mask] +=         nobs[set_key][use_both_mask]
+
+                        # if we got to here we processed the file successfully
+                        sucessful_files += 1
+
             # make sure each file is closed when we're done with it
             io_manager.close_file(full_file_path, file_object)
-            
-            # if we got to here we processed the file correctly
-            sucessful_files += 1
-        
+
         LOG.debug("Successfully processed " + str(sucessful_files) + " files and failed to process " + str(failed_files) + " files for this day.")
         
         # warn the user if we have fewer files than we need for this instrument
@@ -340,65 +482,105 @@ stg make_nobs_lut -i /input/path
             if options.overrideMinCheck :
                 LOG.warn ("Daily file(s) will be produced, but data may be unusable for this day.")
             else :
-                LOG.critical("Daily file(s) will not be produced for this day due to lack of data.")
-                LOG.critical("If you wish to produce the daily file(s), rerun the program using the \'-p\' option.")
+                LOG.critical("Daily file(s) will not be produced for this day due to lack of data." +
+                             "If you wish to produce the daily file(s), rerun the program using the \'-p\' option.")
         
-        # only collect the daily data if we have enough files or have turned off the minimum check
+        # only save the daily data if we have enough files or have turned off the minimum check
         if ( (sucessful_files >= (expected_num_files * EXPECTED_FRACTION_OF_FILES_PER_DAY)) or options.overrideMinCheck ):
-            
-            # collapse the per variable space grids to remove excess NaNs
+
+            # open the output workspace
+            var_workspace = Workspace.Workspace(dir=output_path)
+
+            # process each variable
             for variable_name in all_vars :
-                
-                LOG.debug("Packing space data for variable: " + variable_name)
-                
-                # load the variable's density maps
-                var_workspace     = Workspace.Workspace(dir=output_path)
-                
-                for set_key in abstract_data_sets.keys( ) :
 
-                    LOG.debug("Packing data for set key: " + set_key)
+                if do_multi_overpass :
 
-                    # load the density
-                    temp_density = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                             satellite=satellite,
-                                                                             suffix=set_key + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY)][:]
-                    
-                    # only process the final data if it exists
-                    if numpy.sum(temp_density) > 0 :
-                        
-                        # load the sparse space grid
-                        var_data = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                            satellite=satellite,
-                                                                            suffix=set_key + "-" + TEMP_SUFFIX_KEY)][:]
-                        
-                        # collapse the space grid
-                        final_data = space_gridding.pack_space_grid(var_data, temp_density)
-                        
-                        # save the final array to an appropriately named file
-                        io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                    # collapse the per variable space grids to remove excess NaNs
+                    LOG.debug("Packing space data for variable: " + variable_name)
+
+                    for set_key in abstract_data_sets.keys( ) :
+
+                        LOG.debug("Packing data for set key: " + set_key)
+
+                        # load the density
+                        temp_density = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                                                                                 satellite=satellite,
+                                                                                 suffix=set_key + "-" + DENSITY_SUFFIX + "-" + TEMP_SUFFIX_KEY)][:]
+
+                        # only process the final data if it exists
+                        if numpy.sum(temp_density) > 0 :
+
+                            # load the sparse space grid
+                            var_data = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
                                                                                 satellite=satellite,
-                                                                                suffix=set_key + "-" + DAILY_SPACE_SUFFIX_KEY),
-                                                     space_grid_shape, output_path, final_data,
-                                                     TEMP_DATA_TYPE, file_permissions="w")
+                                                                                suffix=set_key + "-" + TEMP_SUFFIX_KEY)][:]
 
-                        # load the nobs file
-                        nobs_counts = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                     satellite=satellite,
-                                                                                     suffix=set_key + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY)][:]
-                        
-                        # collapse the nobs for the whole day
-                        nobs_final = numpy.sum(nobs_counts, axis=0)
-                        
-                        # save the final nobs array to an appropriately named file
-                        io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                satellite=satellite,
-                                                                                suffix=set_key + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY),
-                                                     space_grid_shape, output_path,
-                                                     nobs_final, TEMP_DATA_TYPE, file_permissions="w")
-                        
-                    else :
-                        LOG.warn("No " + set_key + " data was found for variable " + variable_name + ". Corresponding files will not be written.")
-        
+                            # collapse the space grid
+                            final_data = space_gridding.pack_space_grid(var_data, temp_density)
+
+                            # save the final array to an appropriately named file
+                            io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                                                                                    satellite=satellite,
+                                                                                    suffix=set_key + "-" + DAILY_SPACE_SUFFIX_KEY),
+                                                         space_grid_shape, output_path, final_data,
+                                                         TEMP_DATA_TYPE, file_permissions="w")
+
+                            # load the nobs file
+                            nobs_counts = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                                                                                         satellite=satellite,
+                                                                                         suffix=set_key + "-" + NOBS_SUFFIX + "-" + TEMP_SUFFIX_KEY)][:]
+
+                            # collapse the nobs for the whole day
+                            nobs_final = numpy.sum(nobs_counts, axis=0)
+
+                            # save the final nobs array to an appropriately named file
+                            io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                                                                                    satellite=satellite,
+                                                                                    suffix=set_key + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY),
+                                                         space_grid_shape, output_path,
+                                                         nobs_final, TEMP_DATA_TYPE, file_permissions="w")
+
+                        else :
+                            LOG.warn("No " + set_key + " data was found for variable " + variable_name + ". Corresponding files will not be written.")
+
+                else : # when we are limiting to a single overpass per cell
+
+                    # save the collected space gridded data to files
+                    LOG.debug("Saving space gridded data for variable: " + variable_name)
+
+                    for set_key in collected_data[variable_name] :
+
+                        LOG.debug("Saving data for set key: " + set_key)
+
+                        # for convenience
+                        current_set = collected_data[variable_name][set_key]
+
+                        # figure out the max depth for the 3D files
+                        max_depth = numpy.nanmax(current_set["density"])
+
+                        # only process the final data if it exists
+                        if max_depth > 0 :
+
+                            # save the final space gridded array to an appropriately named file
+                            io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                                                                                    satellite=satellite,
+                                                                                    suffix=set_key + "-" + DAILY_SPACE_SUFFIX_KEY),
+                                                         space_grid_shape, output_path,
+                                                         current_set["space-gridded-data"][0:max_depth, :, :],
+                                                         TEMP_DATA_TYPE, file_permissions="w")
+
+                            # save the final nobs array to an appropriately named file
+                            io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
+                                                                                    satellite=satellite,
+                                                                                    suffix=set_key + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY),
+                                                         space_grid_shape, output_path,
+                                                         current_set["nobs"],
+                                                         TEMP_DATA_TYPE, file_permissions="w")
+
+                        else :
+                            LOG.warn("No " + set_key + " data was found for variable " + variable_name + ". Corresponding files will not be written.")
+
         # remove the extra temporary files in the output directory
         temp_suffix_list = io_manager.get_list_of_suffixes(DAILY_SPACE_TYPE, TEMP_FILE_TYPE)
         remove_suffixes = ["*" + p + "*" for p in temp_suffix_list]
@@ -601,19 +783,6 @@ stg make_nobs_lut -i /input/path
             else :
                 LOG.debug("Unable to parse file name as flat file. This file will not be processed: " + file_name)
 
-        """
-        if len(organized_files.keys()) > 0 :
-            print ("*** files found: ")
-            for file_type in sorted(organized_files.keys()) :
-                print("      type: " + file_type)
-                for datetimestr in sorted(organized_files[file_type].keys()) :
-                    print("            date: " + datetimestr)
-                    for var_name in sorted(organized_files[file_type][datetimestr]) :
-                        print("                  variable: " + var_name)
-                        for list_entry in organized_files[file_type][datetimestr][var_name] :
-                            print("                        " + str(list_entry))
-        """
-
         # set up the variable workspace so we can load our input files
         var_workspace = Workspace.Workspace(dir=input_path)
 
@@ -635,6 +804,7 @@ stg make_nobs_lut -i /input/path
                 setattr(out_file, "DateTime",     datetimestr)
 
                 # create the lat/lon grids
+                LOG.debug("Adding coordinate variable information to output file.")
                 lat_array = numpy.linspace( -90.0,  90.0, lat_size)
                 lon_array = numpy.linspace(-180.0, 180.0, lon_size+1)[0:-1] # since -180 and 180 are the same point, only include one of the two
                 lat_data = numpy.array([lat_array,]*lon_size).transpose()
@@ -658,12 +828,6 @@ stg make_nobs_lut -i /input/path
                     for data_subset in organized_files[file_type][datetimestr][var_name] :
 
                         [file_name, satellite, suffix, var_shape] = data_subset
-
-                        #print("_________________________________")
-                        #print("file_name: " + str(file_name))
-                        #print("satellite: " + str(satellite))
-                        #print("suffix:    " + str(suffix))
-                        #print("var_shape: " + str(var_shape))
 
                         LOG.debug("Adding variable information for " + str(var_name) + " " + str(suffix) + " data to output file.")
 

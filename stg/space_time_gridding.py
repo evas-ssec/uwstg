@@ -16,25 +16,17 @@ Copyright (C) 2014 - 2015 Space Science and Engineering Center (SSEC),
 """
 __docformat__ = "restructuredtext en"
 
-import logging
-import pkg_resources
-import os
-import math
-import glob
-import traceback
-import sys
-import time
+import logging, pkg_resources, os, math, glob, traceback, sys, time
+from collections import defaultdict
 
 import numpy
-
-from collections import defaultdict
 
 from netCDF4 import Dataset
 
 import keoni.fbf.workspace as Workspace
 import keoni.fbf       as fbf
 
-from stg.constants import *
+from   stg.constants import *
 import stg.general_guidebook as general_guidebook
 import stg.io_manager        as io_manager
 import stg.space_gridding    as space_gridding
@@ -93,8 +85,6 @@ def _expand_array_if_needed (in_array, min_size, fill_value=numpy.nan) :
     if in_array.shape[0] < min_size :
 
         new_shape = (min_size, in_array.shape[1], in_array.shape[2])
-
-        LOG.debug("Expanding array to size: " + str(new_shape))
 
         to_return = numpy.ones(new_shape, dtype=in_array.dtype) * fill_value
         to_return[0:in_array.shape[0], :, :] = in_array
@@ -327,12 +317,12 @@ stg make_nobs_lut -i /input/path
                                                                                                lon_indices[set_key],
                                                                                                aux_time=separated_time[set_key],
                                                                                                aux_sensor_zenith_angle=separated_angles[set_key])
-                            space_grids[set_key]  = temp_space_grid
+                            space_grids [set_key] = temp_space_grid
                             density_maps[set_key] = temp_density_map
-                            nobs[set_key]         = temp_nobs
-                            max_depths[set_key]   = temp_max_depth
-                            aux_times[set_key]    = temp_aux_time
-                            aux_angles[set_key]   = temp_aux_angle
+                            nobs        [set_key] = temp_nobs
+                            max_depths  [set_key] = temp_max_depth
+                            aux_times   [set_key] = temp_aux_time  # save the avg time for each cell
+                            aux_angles  [set_key] = temp_aux_angle # save the max angle for each cell
 
                     except Exception, e :
 
@@ -377,103 +367,91 @@ stg make_nobs_lut -i /input/path
                                 if variable_name not in collected_data :
                                     collected_data[variable_name] = { }
 
-                                # only process the output if we have output to process
-                                temp_depth = space_grids[set_key].shape[0]
-                                if temp_depth > 0 :
+                                # if we have no measurements, expand the array to depth 1 to make numpy happy
+                                space_grids[set_key] = _expand_array_if_needed(space_grids[set_key], 1)
 
-                                    # if there isn't any data for this set in our collection, just put what we have in to start with
-                                    if set_key not in collected_data[variable_name] :
+                                # if there isn't any data for this set in our collection, just put what we have in to start with
+                                if set_key not in collected_data[variable_name] :
 
-                                        collected_data[variable_name][set_key] = { }
-                                        current_set = collected_data[variable_name][set_key]
+                                    collected_data[variable_name][set_key] = { }
+                                    current_set = collected_data[variable_name][set_key]
 
-                                        # save the density and nobs (the 2D arrays)
-                                        current_set["density"] = density_maps[set_key]
-                                        current_set["nobs"]    = nobs[set_key]
+                                    # save the the 2D arrays
+                                    current_set["density"] = density_maps[set_key]
+                                    current_set["nobs"]    = nobs[set_key]
+                                    current_set["times"]   = aux_times[set_key]
+                                    current_set["angles"]  = aux_angles[set_key]
 
-                                        # figure out what the depth we need is
-                                        temp_depth = numpy.max(density_maps[set_key]) * 2 # start with twice the space we need
+                                    # save the space gridded data (the 3D array)
+                                    new_depth = int(space_grids[set_key].shape[0] * ARRAY_GROWTH_FACTOR) # expand the arrays a little extra
+                                    current_set["space-gridded-data"] = _expand_array_if_needed(space_grids[set_key], new_depth)
 
-                                        # save the space gridded data, the times, and angles (the 3D arrays)
-                                        new_depth = int(space_grids[set_key].shape[0] * ARRAY_GROWTH_FACTOR) # expand the arrays a little extra
-                                        current_set["space-gridded-data"] = _expand_array_if_needed(space_grids[set_key], new_depth)
-                                        current_set["times"]              = _expand_array_if_needed(  aux_times[set_key], new_depth)
-                                        current_set["angles"]             = _expand_array_if_needed( aux_angles[set_key], new_depth)
+                                else : # when we already have data for this set key, incorporate the new overpass appropriately
 
-                                    else : # when we already have data for this set key, incorporate the new overpass if desired
+                                    # there are several possible cases:
+                                    #           we have no data in that cell of the grid           <- use data from the new file
+                                    #           we have data in that cell, and it's the same orbit <- add the new data to the end of the old data
+                                    #           we have data in that cell, it's a diff orbit       <- either replace the data in that cell or ignore the new data
+                                    #                    (whether you replace or ignore depends on whether the new or old data has the worst sensor zenith angle)
 
-                                        # there are several possible cases here:
-                                        #           there is no data in that cell of the grid           <- use data from the new file
-                                        #           there is data in that cell, and it's the same orbit <- add the new data to the end of the old data
-                                        #           there is data in that cell, it's a diff orbit       <- either replace the data in that cell or ignore the new data
-                                        #                                                               (whether you replace or ignore depends on the sensor zenith angle)
+                                    # for convenience
+                                    current_set = collected_data[variable_name][set_key]
 
-                                        # for convenience
-                                        current_set = collected_data[variable_name][set_key]
+                                    # pre-calculate where there is any data at all in our old and new data sets
+                                    have_old_data    = current_set["nobs"] > 0
+                                    have_new_data    = nobs[set_key]       > 0
+                                    both_have_data   = have_old_data & have_new_data
 
-                                        # pre-calculate where there is any data at all in our old and new data sets
-                                        have_old_data  = numpy.any(numpy.isfinite(current_set["space-gridded-data"]), axis=0)
-                                        have_new_data  = numpy.any(numpy.isfinite(space_grids[set_key]), axis=0)
-                                        both_have_data = have_old_data & have_new_data
+                                    # some other calculations to support our masking
+                                    better_new_angle = aux_angles[set_key] < current_set["angles"]
+                                    time_diff        = numpy.abs(current_set["times"] - aux_times[set_key])
 
-                                        # some other calculations to support our masking
-                                        better_new_angle = numpy.nanmax(aux_angles[set_key], axis=0) < numpy.nanmax(current_set["angles"], axis=0)
-                                        temp_finite_mask = numpy.isfinite(current_set["times"])
-                                        temp_times       = current_set["times"]
-                                        temp_times[~temp_finite_mask] = 0.0
-                                        old_time_avg     = numpy.sum(temp_times, axis=0) / numpy.sum(current_set["density"], axis=0)
-                                        temp_finite_mask = numpy.isfinite(aux_times[set_key])
-                                        temp_times       = aux_times[set_key]
-                                        temp_times[~temp_finite_mask] = 0.0
-                                        new_time_avg     = numpy.sum(temp_times, axis=0) / numpy.sum(density_maps[set_key], axis=0)
-                                        #time_diff        = numpy.abs(numpy.nanmean(current_set["times"], axis=0) - numpy.nanmean(aux_times[set_key], axis=0))
-                                        time_diff        = numpy.abs(old_time_avg - new_time_avg)
+                                    # figure out the masks that will control how we change our data
 
-                                        # figure out the masks that will control how we change our data
+                                    # mask of the places where there is data in the new file, but we had none before
+                                    have_only_new_data_mask = (~ have_old_data) & have_new_data
+                                    # mask of the places where there is data in both and it's the same orbits
+                                    use_both_mask = both_have_data & (time_diff <= space_gridding.SAME_TIME_RANGE_SECONDS)
+                                    # mask of the places where there is data in both and it's different orbit
+                                    use_only_new_data_mask = both_have_data & (time_diff > space_gridding.SAME_TIME_RANGE_SECONDS) & (better_new_angle)
+                                    # Note: We will choose the orbit with the smallest maximum observed sensor zenith angle
+                                    # in the grid cell – especially necessary at high latitudes
+                                    use_new = have_only_new_data_mask | use_only_new_data_mask
 
-                                        # mask of the places where there is data in the new file, but we had none before
-                                        have_only_new_data_mask = (~ have_old_data) & have_new_data
-                                        # mask of the places where there is data in both and it's the same orbits
-                                        use_both_mask = both_have_data & (time_diff <= space_gridding.SAME_TIME_RANGE_SECONDS)
-                                        # mask of the places where there is data in both and it's different orbit
-                                        use_only_new_data_mask = both_have_data & (time_diff > space_gridding.SAME_TIME_RANGE_SECONDS) & (better_new_angle)
-                                        # Note: We will choose the orbit with the smallest maximum observed sensor zenith angle
-                                        # in the grid cell – especially necessary at high latitudes
-                                        use_new = have_only_new_data_mask | use_only_new_data_mask
+                                    # expand the arrays if needed
+                                    o_depth   = current_set["space-gridded-data"].shape[0] # the depth of the old array
+                                    n_depth   = space_grids[set_key].shape[0]              # the depth of the new array
+                                    c_depth   = numpy.max(current_set["density"][use_both_mask] + density_maps[set_key][use_both_mask]) if numpy.any(use_both_mask) else 0 # the combined depth
+                                    new_depth = o_depth   if o_depth   >= n_depth else int(n_depth * ARRAY_GROWTH_FACTOR)
+                                    new_depth = new_depth if new_depth >= c_depth else int(c_depth * ARRAY_GROWTH_FACTOR)
+                                    new_space                         = _expand_array_if_needed(space_grids[set_key],              new_depth)
+                                    current_set["space-gridded-data"] = _expand_array_if_needed(current_set["space-gridded-data"], new_depth)
 
-                                        # expand the arrays if needed
-                                        o_depth   = current_set["space-gridded-data"].shape[0] # the depth of the old array
-                                        n_depth   = numpy.nanmax(density_maps[set_key][use_new]) # get the max depth of the new array
-                                        c_depth   = numpy.nanmax(current_set["density"][use_both_mask] + density_maps[set_key][use_both_mask]) # the combined depth
-                                        new_depth = o_depth   if o_depth   >= n_depth else int(n_depth * ARRAY_GROWTH_FACTOR)
-                                        new_depth = new_depth if new_depth >= c_depth else int(c_depth * ARRAY_GROWTH_FACTOR)
-                                        new_space                         = _expand_array_if_needed(space_grids[set_key],              new_depth)
-                                        new_times                         = _expand_array_if_needed(  aux_times[set_key],              new_depth)
-                                        new_angles                        = _expand_array_if_needed( aux_angles[set_key],              new_depth)
-                                        current_set["space-gridded-data"] = _expand_array_if_needed(current_set["space-gridded-data"], new_depth)
-                                        current_set["times"]              = _expand_array_if_needed(current_set["times"],              new_depth)
-                                        current_set["angles"]             = _expand_array_if_needed(current_set["angles"],             new_depth)
+                                    # replace any data where we are going to use just the new set
+                                    current_set["space-gridded-data"][:, use_new] =          new_space[:, use_new]
+                                    current_set["times"]                [use_new] =    aux_times[set_key][use_new]
+                                    current_set["angles"]               [use_new] =   aux_angles[set_key][use_new]
+                                    current_set["density"]              [use_new] = density_maps[set_key][use_new]
+                                    current_set["nobs"]                 [use_new] =         nobs[set_key][use_new]
 
-                                        # replace any data where we are going to use just the new set
-                                        current_set["times"]             [:, use_new] =             new_times[:, use_new]
-                                        current_set["angles"]            [:, use_new] =            new_angles[:, use_new]
-                                        current_set["space-gridded-data"][:, use_new] =             new_space[:, use_new]
-                                        current_set["density"]              [use_new] = density_maps[set_key]   [use_new]
-                                        current_set["nobs"]                 [use_new] =         nobs[set_key]   [use_new]
-
-                                        # combine the data where we want to use both sets TODO, how can I do this in a more numpy and python friendly way?
-                                        temp_shape = current_set["space-gridded-data"].shape
-                                        for lat in range(temp_shape[1]) :
-                                            for lon in range(temp_shape[2]) :
-                                                if use_both_mask[lat, lon] :
-                                                    prev_num     = current_set["density"][lat, lon]
-                                                    num_adding   = density_maps[set_key] [lat, lon]
-                                                    new_total    = prev_num + num_adding
-                                                    current_set["times"]             [prev_num:new_total, lat, lon] =  new_times[:num_adding, lat, lon]
-                                                    current_set["angles"]            [prev_num:new_total, lat, lon] = new_angles[:num_adding, lat, lon]
-                                                    current_set["space-gridded-data"][prev_num:new_total, lat, lon] =  new_space[:num_adding, lat, lon]
-                                        current_set["density"][use_both_mask] += density_maps[set_key][use_both_mask]
-                                        current_set["nobs"]   [use_both_mask] +=         nobs[set_key][use_both_mask]
+                                    # combine the data where we want to use both sets TODO, how can I do this in a more numpy and python friendly way?
+                                    temp_shape = current_set["space-gridded-data"].shape
+                                    for lat in range(temp_shape[1]) :
+                                        for lon in range(temp_shape[2]) :
+                                            if use_both_mask[lat, lon] :
+                                                prev_num     = current_set["density"][lat, lon]
+                                                num_adding   = density_maps[set_key] [lat, lon]
+                                                new_total    = prev_num + num_adding
+                                                current_set["space-gridded-data"][prev_num:new_total, lat, lon] =  new_space[:num_adding, lat, lon]
+                                    # build a combined average of the times
+                                    current_set["times"]  [use_both_mask] =  ((aux_times[set_key][use_both_mask] * nobs[set_key][use_both_mask]) + \
+                                                                             (current_set["times"][use_both_mask] * current_set["nobs"][use_both_mask])) \
+                                                                             / (nobs[set_key][use_both_mask] + current_set["nobs"][use_both_mask])
+                                    temp_new_angles = aux_angles[set_key][use_both_mask]
+                                    temp_old_angles = current_set["angles"][use_both_mask]
+                                    current_set["angles"] [use_both_mask] = numpy.where(temp_new_angles > temp_old_angles, temp_new_angles, temp_old_angles) # select the largest angle from the two sets
+                                    current_set["density"][use_both_mask] += density_maps[set_key][use_both_mask]
+                                    current_set["nobs"]   [use_both_mask] +=         nobs[set_key][use_both_mask]
 
                         # if we got to here we processed the file successfully
                         sucessful_files += 1
@@ -857,8 +835,6 @@ stg make_nobs_lut -i /input/path
                             out_file.createDimension(third_dim, temp_shape[0])
                         else :
                             raw_data = raw_data[0]
-
-                        #print("data shape: " + str(raw_data.shape))
 
                         # create the variable with the appropriate dimensions
                         dims = (third_dim, "latitude", "longitude") if third_dim is not None else ("latitude", "longitude")

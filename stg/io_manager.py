@@ -15,11 +15,9 @@ __docformat__ = "restructuredtext en"
 
 from constants import *
 
-import sys, logging, os, re, copy
+import sys, logging, os, re
 
 import numpy
-
-import stg.general_guidebook as general_guidebook
 
 import stg.modis_guidebook   as modis_guidebook
 import stg.modis_io          as modis_io
@@ -234,7 +232,7 @@ def parse_flatfile_name (flatfile_name) :
     # strip off the shape and data type from the end
     temp_name = flatfile_name.split(".")
     if len(temp_name) >= 4 :
-        data_type = temp_name[1]
+        #data_type = temp_name[1] # TODO, would it improve the algorithm to use this?
         var_shape = tuple(reversed(temp_name[2:]))
     temp_name = temp_name[0] # extract the name stem
 

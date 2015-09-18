@@ -19,7 +19,6 @@ import numpy
 import logging
 
 from stg.constants import *
-from stg.stg_util  import make_index_grid
 
 LOG = logging.getLogger(__name__)
 
@@ -49,22 +48,27 @@ def space_grid_data (grid_lat_size, grid_lon_size, data, lat_indexes, lon_indexe
     #    print ("data range: " + str(data.min()) + " " + str(data.max()))
     
     space_grid_shape = (grid_lat_size, grid_lon_size) # I've confirmed with Nadia that this is the correct order
-    
+
     # create the density map and figure out how dense the data will be
     # FUTURE, figure out how to do this in native numpy ops instead of loops
-    density_map = numpy.zeros(space_grid_shape)
-    nobs_map    = numpy.zeros(space_grid_shape)
+    density_map  = numpy.zeros(space_grid_shape)
+    nobs_map     = numpy.zeros(space_grid_shape)
+    time_sum     = numpy.zeros(space_grid_shape)
+    worst_angles = numpy.zeros(space_grid_shape)
     for index in range(data.size) :
         nobs_map[lat_indexes[index], lon_indexes[index]] += 1
+        time_sum[lat_indexes[index], lon_indexes[index]] += aux_time[index]
+        worst_angles[lat_indexes[index], lon_indexes[index]] = max(worst_angles[lat_indexes[index], lon_indexes[index]], aux_sensor_zenith_angle[index])
         if numpy.isfinite(data[index]) :
             density_map[lat_indexes[index], lon_indexes[index]] += 1
     max_depth = numpy.max(density_map)
+    none_mask = (time_sum <= 0) | (nobs_map <= 0)
+    time_avg  = time_sum / nobs_map
+    time_avg[none_mask] = numpy.nan
 
     # create the space grids for this variable
     space_grid = numpy.ones((max_depth, grid_lat_size, grid_lon_size), dtype=numpy.float32) * numpy.nan #TODO, dtype should be set dynamically
     temp_depth = numpy.zeros(space_grid_shape)
-    grid_time  = numpy.ones((max_depth, grid_lat_size, grid_lon_size), dtype=numpy.float32) * numpy.nan if aux_time                is not None else None
-    grid_angle = numpy.ones((max_depth, grid_lat_size, grid_lon_size), dtype=numpy.float32) * numpy.nan if aux_sensor_zenith_angle is not None else None
 
     # put the variable data into the space grid
     # FUTURE, figure out how to do this in native numpy ops instead of loops
@@ -72,13 +76,9 @@ def space_grid_data (grid_lat_size, grid_lon_size, data, lat_indexes, lon_indexe
         if numpy.isfinite(data[index]) :
             depth = temp_depth[lat_indexes[index], lon_indexes[index]]
             space_grid[depth,  lat_indexes[index], lon_indexes[index]] = data[index]
-            if grid_time is not None :
-                grid_time[depth,  lat_indexes[index], lon_indexes[index]] = aux_time[index]
-            if grid_angle is not None :
-                grid_angle[depth,  lat_indexes[index], lon_indexes[index]] = aux_sensor_zenith_angle[index]
             temp_depth[        lat_indexes[index], lon_indexes[index]] += 1
 
-    return space_grid, density_map, nobs_map, max_depth, grid_time, grid_angle
+    return space_grid, density_map, nobs_map, max_depth, time_avg, worst_angles
 
 def pack_space_grid (data_array, density_array) :
     """
@@ -90,31 +90,22 @@ def pack_space_grid (data_array, density_array) :
     
     # figure out the maximum depth of the well packed data based on the density map
     max_depth = numpy.max(numpy.sum(density_array, axis=0))
+
+    # create a mask of where the data values are
+    valid_mask = numpy.isfinite(data_array)
     
     # create the final data array at the right depth
     final_data = numpy.ones((max_depth + 1, data_array.shape[1], data_array.shape[2]), dtype=data_array.dtype) * numpy.nan
     
     LOG.debug("  original data shape: " + str(data_array.shape))
     LOG.debug("  final data shape:    " + str(final_data.shape))
-    
-    # lat_data, lon_data = make_index_grid(data_array.shape[1:3])
-    
-    temp_index = numpy.zeros((data_array.shape[1], data_array.shape[2]), dtype=numpy.int)
-    for depth in range(data_array.shape[0]) :
-        
-        this_slice = data_array[depth]
-        valid_mask = numpy.isfinite(this_slice)
-        
-        # final_data[temp_index, lat_data, lon_data] = this_slice
 
-        # FUTURE, can we do this directly with numpy instead of looping?
-        for row in range(this_slice.shape[0]) :
-            for col in range(this_slice.shape[1]) :
-                if valid_mask[row, col] :
-                    final_data[temp_index[row, col], row, col] = this_slice[row, col]
-        
-        
-        temp_index += valid_mask
+    # FUTURE, can we do this directly with numpy instead of looping?
+    for row in range(data_array.shape[1]) :
+        for col in range(data_array.shape[2]) :
+            local_valid_mask = valid_mask[:, row, col]
+            num_valid = numpy.sum(local_valid_mask)
+            final_data[:num_valid, row, col] = data_array[:,row,col][local_valid_mask]
     
     return final_data[0:-1]
 

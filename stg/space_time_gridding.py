@@ -43,12 +43,12 @@ EXPECTED_FRACTION_OF_FILES_PER_DAY = 2.0 / 3.0
 
 LOG = logging.getLogger(__name__)
 
-def get_version_string() :
+def _get_version_string() :
     version_num = pkg_resources.require('spacetimegrid')[0].version
     
     return "Space Time Gridding, version " + str(version_num) 
 
-def remove_file_patterns(path, *args):
+def _remove_file_patterns(path, *args):
     """Remove files that were created from a previous run,
     including temporary files, that may conflict with
     future processing.
@@ -91,6 +91,25 @@ def _expand_array_if_needed (in_array, min_size, fill_value=numpy.nan) :
 
     return to_return
 
+def _clean_path(string_path) :
+    """
+    Return a clean form of the path without any '.', '..', or '~'
+    """
+    clean_path = None
+    if string_path is not None :
+        clean_path = os.path.abspath(os.path.expanduser(string_path))
+
+    return clean_path
+
+def _setup_dir_if_needed(dir_path, description_name) :
+    """
+    create the directory if that is needed, if not don't
+    """
+    if not (os.path.isdir(dir_path)) :
+        LOG.info("Specified " + description_name + " directory (" + dir_path + ") does not exist.")
+        LOG.info("Creating " + description_name + " directory.")
+        os.makedirs(dir_path)
+
 def main():
     import optparse
     usage = """
@@ -117,33 +136,35 @@ stg make_nobs_lut -i /input/path
     parser.add_option('-w', '--debug', dest="debug",
                     action="store_true", default=False, help="enable debug output")
     parser.add_option('-n', '--version', dest='version',
-                      action="store_true", default=False, help="view the STG version")
+                      action="store_true", default=False, help="print the STG version")
     
     # output generation related options
     parser.add_option('-i', '--input',  dest="inputPath",  type='string', default='./',
-                      help="set path for the input directory")
+                      help="set path for the input directory; defaults to ./")
     parser.add_option('-o', '--output', dest="outputPath", type='string', default='./out/',
-                      help="set path for the output directory")
+                      help="set path for the output directory; defaults to ./out/")
     
     # options related to space or time gridding
-    parser.add_option('-g', '--grid_degrees', dest="gridDegrees", type='float', default=1.0,
-                      help="set the size of the output grid's cells in degrees")
-    parser.add_option('-a', '--min_scan_angle', dest="minScanAngle", type='float', default=60.0,
-                      help="the minimum scan angle that will be considered useful")
+    parser.add_option('-g', '--grid_degrees', dest="gridDegrees", type='float', default=0.5,
+                      help="set the size of the output grid's cells in degrees; defaults to 0.5")
+    parser.add_option('-a', '--min_scan_angle', dest="minScanAngle", type='float', default=32.0,
+                      help="the minimum scan angle that will be considered useful; defaults to 32.0")
     parser.add_option('-p', '--do_process_with_little_data', dest="overrideMinCheck",
                       action="store_true", default=False, help="run the full daily compilation even if many files are missing or unreadable")
     parser.add_option('-f', '--fixed_nobs_cutoff', dest="fixedNobsCutoff", type='float', default=None,
-                      help="the minimum number of nobs that must be present for data to be considered when time gridding")
+                      help="the minimum number of nobs that must be present for data to be considered when time gridding; "
+                           "by default there will be no check")
     parser.add_option('-d', '--dynamic_nobs_cutoff', dest="dynamicNobsCutoff", type='float', default=None,
                       help="the minimum nobs that must be present for data to be considered when time gridding," +
-                           " expressed a fraction of the std from the mean")
+                           " expressed a fraction of the std from the mean; by default there will be no check")
     parser.add_option('-l', '--nobs_lut', dest="nobsLUT", type='string', default=None,
-                      help="a long term look up table for use with the --dynamic_nobs_cutoff option")
+                      help="a long term look up table for use with the --dynamic_nobs_cutoff option; by default no lut will be loaded")
     parser.add_option('-t', '--day_night_together', dest='keep_day_night_together',
                       action="store_true", default=False, help="instead of separating day and night data, process them together")
     parser.add_option('-m', '--multiple_overpasses_per_cell', dest="allow_multiple_overpasses_per_cell",
                       action="store_true", default=False, help="allow multiple overpasses to fall in the same grid cell; "
-                                                               "the default is to only allow the best overpass (by sensor angle)")
+                                                               "the default is to only allow the best overpass in each cell"
+                                                               " (best is determined by sensor angle)")
     
     # parse the uers options from the command line
     options, args = parser.parse_args()
@@ -157,7 +178,7 @@ stg make_nobs_lut -i /input/path
     
     # display the version
     if options.version :
-        print (get_version_string() + '\n')
+        print (_get_version_string() + '\n')
 
     commands = {}
     prior = None
@@ -177,8 +198,9 @@ stg make_nobs_lut -i /input/path
         
         # set up some of our input from the caller for easy access
         desired_variables  = list(args) if len(args) > 0 else [ ]
-        input_path         = options.inputPath
-        output_path        = options.outputPath
+        input_path         = _clean_path(options.inputPath)
+        output_path        = _clean_path(options.outputPath)
+        _setup_dir_if_needed(output_path, "output")
         min_scan_angle     = options.minScanAngle
         grid_degrees       = float(options.gridDegrees)
         do_day_night       = not options.keep_day_night_together
@@ -571,7 +593,7 @@ stg make_nobs_lut -i /input/path
         # remove the extra temporary files in the output directory
         temp_suffix_list = io_manager.get_list_of_suffixes(DAILY_SPACE_TYPE, TEMP_FILE_TYPE)
         remove_suffixes = ["*" + p + "*" for p in temp_suffix_list]
-        remove_file_patterns(output_path, remove_suffixes)
+        _remove_file_patterns(output_path, remove_suffixes)
     
     def time_gridding_day(*args) :
         """given a day worth of files of daily space gridded data, calculate daily stats
@@ -582,8 +604,9 @@ stg make_nobs_lut -i /input/path
         """
         
         # set up some of our caller determined settings for easy access
-        input_path      = options.inputPath
-        output_path     = options.outputPath
+        input_path      = _clean_path(options.inputPath)
+        output_path     = _clean_path(options.outputPath)
+        _setup_dir_if_needed(output_path, "output")
         fix_nobs_cutoff = options.fixedNobsCutoff   if options.fixedNobsCutoff   >= 0 else None
         dyn_nobs_cutoff = options.dynamicNobsCutoff if options.dynamicNobsCutoff >= 0 else None
         nobs_LUT_path   = options.nobsLUT
@@ -735,8 +758,9 @@ stg make_nobs_lut -i /input/path
 
         # set up some of our input from the caller for easy access
         desired_variables = list(args) if len(args) > 0 else [ ]
-        input_path        = options.inputPath
-        output_path       = options.outputPath
+        input_path        = _clean_path(options.inputPath)
+        output_path       = _clean_path(options.outputPath)
+        _setup_dir_if_needed(output_path, "output")
 
         # check the directory for input files
         lat_size = None
@@ -859,8 +883,9 @@ stg make_nobs_lut -i /input/path
         """
 
         # set up some of our caller determined settings for easy access
-        input_path      = options.inputPath
-        output_path     = options.outputPath
+        input_path      = _clean_path(options.inputPath)
+        output_path     = _clean_path(options.outputPath)
+        _setup_dir_if_needed(output_path, "output")
 
         # check the directory for sets of daily files
         expected_files_by_date = defaultdict(list)

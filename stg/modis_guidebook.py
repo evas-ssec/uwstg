@@ -26,14 +26,18 @@ from datetime import datetime
 LOG = logging.getLogger(__name__)
 
 # these are constants for separating the cloud top pressure in to low/mid/high
-# TODO, this needs to be revised
-"""
-high pressure is < 440
-low  pressure is > 680
-mid pressure is everything in between
-"""
+#       high pressure is < 440
+#       low  pressure is >= 680
+#       mid pressure is everything in between
 HIGH_CLOUD_TOP_PRESSURE_CONST = 440
 LOW_CLOUD_TOP_PRESSURE_CONST  = 680
+
+# constants for separating the cloud effective emissivity into thin/thick/opaque
+#       thin is < 0.5
+#       opaque is >= 0.95
+#       thick is everything in between
+THIN_CLOUDS_CUTOFF_CONST   = 0.5
+OPAQUE_CLOUDS_CUTOFF_CONST = 0.95
 
 # the expected number of files per day if nothing goes wrong
 EXPECTED_FILES_PER_DAY      = 288
@@ -175,7 +179,7 @@ DATA_TYPE_TO_USE = { # TODO, eventually differentiate the data type by variable
                    }
 
 # a list of the default variables expected in a file, used when no variables are selected by the caller
-EXPECTED_VARIABLES_IN_FILE = set([CLOUD_TOP_PRESS_NAME]) # TODO, this is currently set for our minimal testing
+EXPECTED_VARIABLES_IN_FILE = set([CLOUD_TOP_PRESS_NAME, CLOUD_EFF_EMISS_NAME]) # TODO, this is currently set for our minimal testing
 
 # TODO, move this up to the general_guidebook
 def _clean_off_path_if_needed(file_name_string) :
@@ -265,13 +269,25 @@ def mask_variable_for_time_gridding (variable_name, variable_data) :
     """
     
     to_return = { }
-    
+
+    # separate the cloud top pressure categories into high/mid/low
     if variable_name == CLOUD_TOP_PRESS_NAME :
         
-        to_return[HIGH_MODIFIER] = variable_data < HIGH_CLOUD_TOP_PRESSURE_CONST
-        to_return[MID_MODIFIER]  = (variable_data >= HIGH_CLOUD_TOP_PRESSURE_CONST) & (variable_data <= LOW_CLOUD_TOP_PRESSURE_CONST)
-        to_return[LOW_MODIFIER]  = variable_data > LOW_CLOUD_TOP_PRESSURE_CONST
-        
+        to_return[HIGH_MODIFIER] =  variable_data <  HIGH_CLOUD_TOP_PRESSURE_CONST
+        to_return[MID_MODIFIER]  = (variable_data >= HIGH_CLOUD_TOP_PRESSURE_CONST) & \
+                                   (variable_data <  LOW_CLOUD_TOP_PRESSURE_CONST)
+        to_return[LOW_MODIFIER]  =  variable_data >= LOW_CLOUD_TOP_PRESSURE_CONST
+
+    # separate the cloud effective emissivity categories into thin/thick/opaque
+    elif variable_name == CLOUD_EFF_EMISS_NAME :
+
+        to_return[THIN_MODIFIER]   =  variable_data <  THIN_CLOUDS_CUTOFF_CONST
+        to_return[THICK_MODIFIER]  = (variable_data >= THIN_CLOUDS_CUTOFF_CONST) & \
+                                     (variable_data <  OPAQUE_CLOUDS_CUTOFF_CONST)
+        to_return[OPAQUE_MODIFIER] =  variable_data >= OPAQUE_CLOUDS_CUTOFF_CONST
+
+    # TODO, separate the cloud phase in to ice/water/unknown categories
+
     else :
         to_return[""] = numpy.ones(variable_data.shape, dtype=numpy.bool)
     

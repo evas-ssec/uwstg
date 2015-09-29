@@ -27,7 +27,7 @@ setup( name="spacetimegrid",
        zip_safe = True,
        entry_points = { 'console_scripts': [ 'stg = stg.space_time_gridding:main', 'stg_plot = stg.plot_tools:main' ] },
        packages = ['stg'], #find_packages('.'),
-       install_requires=[ 'numpy>=1.8.0', 'scipy', 'pyhdf', 'netCDF4', 'matplotlib', ], # 'mpl_toolkits', ],
+       install_requires=[ 'numpy>=1.8.0', 'scipy', 'python-hdf4', 'netCDF4', 'matplotlib', ], # 'mpl_toolkits', ],
        #package_data = {'': ['*.txt', '*.gif']}
        )
 

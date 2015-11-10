@@ -46,9 +46,13 @@ EXPECTED_FILES_PER_DAY      = 288
 CLOUD_PHASE_NAME            = 'Cloud_Phase_Infrared'
 CLOUD_TOP_TEMP_NAME         = 'Cloud_Top_Temperature'
 CLOUD_TOP_PRESS_NAME        = 'Cloud_Top_Pressure'
+CLOUD_TOP_HEIGHT_NAME       = 'Cloud_Top_Height'
 CLOUD_EFF_EMISS_NAME        = 'Cloud_Effective_Emissivity'
 CLOUD_TOP_PRESS_1KM_NAME    = 'cloud_top_pressure_1km'
 CLOUD_TOP_TEMP_1KM_NAME     = 'cloud_top_temperature_1km'
+CLOUD_TOP_HEIGHT_1KM_NAME   = 'cloud_top_height_1km'
+CLOUD_EFF_EMISS_1KM_NAME    = 'cloud_emissivity_1km'
+CLOUD_PHASE_1KM_NAME        = 'Cloud_Phase_Infrared_1km'
 CLOUD_EFF_RADIUS_16_NAME    = 'Cloud_Effective_Radius_16'
 CLOUD_EFF_RADIUS_37_NAME    = 'Cloud_Effective_Radius_37'
 CLOUD_OPTICAL_THICK_NAME    = 'Cloud_Optical_Thickness'
@@ -62,6 +66,7 @@ SCAN_LINE_TIME_NAME         = 'Scan_Start_Time'
 CLOUD_MULTI_LAYER_FLAG_NAME = 'Cloud_Multi_Layer_Flag'
 RADIANCE_VARIANCE_NAME      = 'Radiance_Variance'
 BRIGHTNESS_TEMP_NAME        = 'Brightness_Temperature'
+CLOUD_FRACTION_NAME         = 'Cloud_Fraction'
 
 # TODO, sort out how to differentiate the Cloud Effective Radius
 # TODO, currently the fortran is testing:
@@ -79,7 +84,8 @@ NAVIGATION_VAR_NAMES        = [LONGITUDE_NAME,
                                LATITUDE_NAME,
                                SOLAR_ZENITH_NAME,
                                SENSOR_ZENITH_NAME,
-                               SCAN_LINE_TIME_NAME]
+                               SCAN_LINE_TIME_NAME,
+                               CLOUD_TOP_PRESS_NAME]
 
 # important attribute names
 SCALE_ATTR_NAME             = 'scale_factor'
@@ -161,9 +167,13 @@ DATA_TYPE_TO_USE = { # TODO, eventually differentiate the data type by variable
                     CLOUD_PHASE_NAME:               numpy.float32,
                     CLOUD_TOP_TEMP_NAME:            numpy.float32,
                     CLOUD_TOP_PRESS_NAME:           numpy.float32,
+                    CLOUD_TOP_HEIGHT_NAME:          numpy.float32,
                     CLOUD_EFF_EMISS_NAME:           numpy.float32,
                     CLOUD_TOP_PRESS_1KM_NAME:       numpy.float32,
                     CLOUD_TOP_TEMP_1KM_NAME:        numpy.float32,
+                    CLOUD_TOP_HEIGHT_1KM_NAME:      numpy.float32,
+                    CLOUD_EFF_EMISS_1KM_NAME:       numpy.float32,
+                    CLOUD_PHASE_1KM_NAME:           numpy.float32,
                     CLOUD_EFF_RADIUS_16_NAME:       numpy.float32,
                     CLOUD_EFF_RADIUS_37_NAME:       numpy.float32,
                     CLOUD_OPTICAL_THICK_NAME:       numpy.float32,
@@ -176,10 +186,23 @@ DATA_TYPE_TO_USE = { # TODO, eventually differentiate the data type by variable
                     CLOUD_MULTI_LAYER_FLAG_NAME:    numpy.float32,
                     RADIANCE_VARIANCE_NAME:         numpy.float32,
                     BRIGHTNESS_TEMP_NAME:           numpy.float32,
+                    CLOUD_FRACTION_NAME:            numpy.float32,
                    }
 
 # a list of the default variables expected in a file, used when no variables are selected by the caller
-EXPECTED_VARIABLES_IN_FILE = set([CLOUD_TOP_PRESS_NAME, CLOUD_EFF_EMISS_NAME]) # TODO, this is currently set for our minimal testing
+EXPECTED_VARIABLES_IN_FILE = {
+                                CLOUD_TOP_PRESS_NAME,
+                                CLOUD_TOP_HEIGHT_NAME,
+                                CLOUD_EFF_EMISS_NAME,
+                                CLOUD_PHASE_NAME,
+                                CLOUD_FRACTION_NAME,
+                                # TODO, once the algorithm can handle the 1km data, also add:
+                                # CLOUD_TOP_PRESS_1KM_NAME,
+                                # CLOUD_TOP_HEIGHT_1KM_NAME,
+                                # CLOUD_EFF_EMISS_1KM_NAME,
+                                # CLOUD_PHASE_1KM_NAME,
+
+                             }
 
 # TODO, move this up to the general_guidebook
 def _clean_off_path_if_needed(file_name_string) :

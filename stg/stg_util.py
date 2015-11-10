@@ -16,6 +16,9 @@ __docformat__ = "restructuredtext en"
 from constants import *
 
 import numpy
+import os, logging
+
+LOG = logging.getLogger(__name__)
 
 def make_lat_lon_grids ((lat_size, lon_size), lat_min=-90, lat_max=90, lon_min=-180, lon_max=180) :
     
@@ -37,3 +40,22 @@ def make_index_grid ((lat_size, lon_size)) :
     temp_lon = temp_lon.astype(numpy.int)
     
     return temp_lat, temp_lon
+
+def clean_path(string_path) :
+    """
+    Return a clean form of the path without any '.', '..', or '~'
+    """
+    clean_path = None
+    if string_path is not None :
+        clean_path = os.path.abspath(os.path.expanduser(string_path))
+
+    return clean_path
+
+def setup_dir_if_needed(dir_path, description_name) :
+    """
+    create the directory if that is needed, if not don't
+    """
+    if not (os.path.isdir(dir_path)) :
+        LOG.info("Specified " + description_name + " directory (" + dir_path + ") does not exist.")
+        LOG.info("Creating " + description_name + " directory.")
+        os.makedirs(dir_path)

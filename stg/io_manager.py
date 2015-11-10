@@ -21,11 +21,15 @@ import numpy
 
 import stg.modis_guidebook   as modis_guidebook
 import stg.modis_io          as modis_io
+import stg.stg_util          as stg_util
 
 import stg.ctp_guidebook as ctp_guidebook
 import stg.ctp_io        as ctp_io
 
-import keoni.fbf as fbf
+import keoni.fbf           as fbf
+import keoni.fbf.workspace as Workspace
+
+from netCDF4 import Dataset
 
 LOG = logging.getLogger(__name__)
 
@@ -210,6 +214,12 @@ def build_name_stem (variable_name, date_time=None, satellite=None, suffix=None)
     
     # date_stamp + "_" + var_name + suffix
 
+def get_datestamp (date_time_ob) :
+    """given a date time object, return a date time string to use
+    """
+
+    return date_time_ob.strftime(DATE_STAMP_FORMAT)
+
 def parse_flatfile_name (flatfile_name) :
     """given a flat file name, parse out the things we expect from the stem
 
@@ -322,6 +332,197 @@ def organize_space_gridded_files (file_name_list) :
     # FUTURE, needs a statement for ctp
     
     return to_return
+
+def is_stg_output_file(file_name, specific_type=None) :
+    """determine if the input file name is formatted like an stg output file
+    if specific_type is given, return true only if the file is also of that type
+    """
+
+    to_return = True
+
+    # if this isn't a netcdf, then it isn't one of our files
+    if not (file_name.endswith("." + NETCDF_SUFFIX)) :
+        to_return = False
+
+    # if the user asked for a specific type, check that
+    if specific_type is not None :
+        if file_name.find(specific_type) < 0 :
+            to_return = False
+    else : # if they didn't ask for a specific type, check for all our types
+        good_type = False
+        for file_type in ALL_STG_FILE_TYPES :
+            if file_name.find(file_type) >= 0 :
+                good_type = True
+        to_return = to_return and good_type
+
+    return to_return
+
+def sort_variable_names(file_object) :
+    """organize the variable names by their categories and associate nobs with the right variables
+
+    returns in the form
+            {var name: {"cats": <category list string>, "nobs": the nobs variable name}}
+    """
+
+    # get all the variable names
+    all_var_names = file_object.variables.keys()
+
+    # separate the variables into nobs and data variables
+    data_var_names = set()
+    nobs_var_names  = set()
+    for var_name in all_var_names :
+
+        # check to see if this is an nobs file
+        if var_name.endswith(NOBS_SUFFIX) :
+            nobs_var_names.add(var_name)
+        else :
+            data_var_names.add(var_name)
+
+    # sort the variables by any categories they have and match nobs with the variable it belongs to
+    to_return = { }
+    for var_name in data_var_names :
+        expected_nobs_name = var_name + "_" + NOBS_SUFFIX
+        if expected_nobs_name not in nobs_var_names :
+            LOG.debug("Unable to find matching number of observations variable for variable (" + var_name + "). " +
+                      "This variable will not be processed.")
+        else :
+            # get the category information
+            temp_cat_string = file_object.variables[var_name].categories
+            if var_name not in to_return :
+                to_return[var_name] = { }
+            to_return[var_name] = {"cats": temp_cat_string, "nobs": expected_nobs_name}
+
+    return to_return
+
+def create_netCDF_output_file (output_path, file_title, do_ovewrite=False) :
+    """given an output path, create a netCDF file with the given title
+    """
+
+    # set up the output directory if needed
+    stg_util.setup_dir_if_needed(output_path, "output")
+
+    # figure out the full output path with the file name
+    out_file_path = os.path.abspath(os.path.expanduser(os.path.join(output_path, file_title + ".nc")))
+
+    # if the file we're creating already exists, make sure the caller wanted it overwritten
+    if os.path.exists(out_file_path) and not do_ovewrite :
+        LOG.error("Output file already exists: " + out_file_path)
+
+    # create a blank nc file
+    LOG.debug("Creating output file: " + out_file_path)
+    out_file = None
+    try :
+        out_file = Dataset(out_file_path, mode='w', format='NETCDF4', clobber=not do_ovewrite)
+    except Exception, e :
+        LOG.critical("Unable to create output file ")
+
+    return out_file
+
+def set_up_dimensions_and_global_attrs_in_netCDF (file_object,
+                                                 lat_size, lon_size,
+                                                 grid_type_constant,
+                                                 date_time_string,
+                                                 global_attrs={ }) :
+    """build the standard dimensions and global attributes for this file
+    """
+
+    # declare our lat and lon dimensions
+    file_object.createDimension("latitude",  lat_size)
+    file_object.createDimension("longitude", lon_size)
+
+    # create some global attributes
+    setattr(file_object, "GridingType", grid_type_constant)
+    setattr(file_object, "DateTime",     date_time_string)
+
+    # if we have any additional global attrs, create those too
+    for attr_key in global_attrs :
+        setattr(file_object, attr_key, global_attrs[attr_key])
+
+    # create the lat/lon grids
+    LOG.debug("Adding coordinate variable information to output file.")
+    lat_array = numpy.linspace( -90.0,  90.0, lat_size)
+    lon_array = numpy.linspace(-180.0, 180.0, lon_size+1)[0:-1] # since -180 and 180 are the same point, only include one of the two
+    lat_data = numpy.array([lat_array,]*lon_size).transpose()
+    lon_data = numpy.array([lon_array,]*lat_size)
+    # create the one dimensional arrays of latitude and longitude values
+    out_var_obj = file_object.createVariable("latitude",  numpy.float32, ("latitude"), fill_value=numpy.nan)
+    out_var_obj.set_auto_maskandscale(False)
+    out_var_obj[:] = lat_array
+    out_var_obj = file_object.createVariable("longitude", numpy.float32, ("longitude"), fill_value=numpy.nan)
+    out_var_obj.set_auto_maskandscale(False)
+    out_var_obj[:] = lon_array
+    # create tiled 2D arrays of the latitude and longitude for ease of plotting
+    out_var_obj = file_object.createVariable("latitude-grid",  numpy.float32, ("latitude", "longitude"), fill_value=numpy.nan)
+    out_var_obj.set_auto_maskandscale(False)
+    out_var_obj[:] = lat_data
+    out_var_obj = file_object.createVariable("longitude-grid", numpy.float32, ("latitude", "longitude"), fill_value=numpy.nan)
+    out_var_obj.set_auto_maskandscale(False)
+    out_var_obj[:] = lon_data
+
+    return file_object
+
+def get_nc_latlon_sizes (file_object) :
+    """given a file with attributes in the format that stg makes, get the lat and lon sizes
+    """
+
+    # get the sizes from the file
+    lat_size = len(file_object.dimensions["latitude"])
+    lon_size = len(file_object.dimensions["longitude"])
+
+    return lat_size, lon_size
+
+def add_variable_to_netCDF (file_object, var_name, data, fill_value=numpy.nan, suffix_list = [] ) :
+    """add a variable with data and attrs to an already opened netCDF file object
+
+    Note: It is assumed that the variable will be either 2D and in the shape (1, lat_size, lon_size) or
+    3D and in the shape (x, lat_size, lon_size). If it is 3D a "_count" dimension will be created for the
+    first dimension of the variable.
+    """
+
+    # pull lon/lat info for size comparisons
+    lat_size, lon_size = get_nc_latlon_sizes(file_object)
+
+    # figure out the full variable name we're going to use in the file
+    out_variable_name = var_name #+ "_" + satellite
+    suffix_str        = ""
+    for suffix in suffix_list :
+        out_variable_name += "_" + suffix
+        suffix_str += " " + suffix
+    suffix_str = suffix_str[1:] # remove the very first space
+
+    # do some checks on the data shape
+    temp_shape = data.shape
+    #print("temp shape: " + str(temp_shape))
+    #print("lat size:   " + str(lat_size))
+    #print("lon size:   " + str(lon_size))
+    third_dim = None
+    if len(temp_shape) == 2 :
+        assert (temp_shape[0] == lat_size)
+        assert (temp_shape[1] == lon_size)
+    elif len(temp_shape) == 3 :
+        assert (temp_shape[1] == lat_size)
+        assert (temp_shape[2] == lon_size)
+
+        # if we need another dimension, generate that
+        if temp_shape[0] > 1 :
+            third_dim = out_variable_name + "_count"
+            file_object.createDimension(third_dim, temp_shape[0])
+        else :
+            data = data[0] # remove the empty first dimension
+    else :
+        LOG.error("Unexpected data shape: " + str(temp_shape))
+
+    # create the variable with the appropriate dimensions
+    dims = (third_dim, "latitude", "longitude") if third_dim is not None else ("latitude", "longitude")
+    out_var_obj = file_object.createVariable(out_variable_name, numpy.float32, dims, fill_value=fill_value)
+    out_var_obj.set_auto_maskandscale(False)
+
+    # set the variable attributes
+    setattr(out_var_obj, "categories",      suffix_str)
+    setattr(out_var_obj, "originalVarName", var_name)
+
+    # set the variable data
+    out_var_obj[:] = data
 
 def main():
     import optparse

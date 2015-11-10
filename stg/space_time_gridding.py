@@ -31,6 +31,7 @@ import stg.general_guidebook as general_guidebook
 import stg.io_manager        as io_manager
 import stg.space_gridding    as space_gridding
 import stg.time_gridding     as time_gridding
+import stg.stg_util          as stg_util
 
 # TODO, in the long run handle the dtype more flexibly
 TEMP_DATA_TYPE = numpy.dtype(numpy.float32)
@@ -46,7 +47,7 @@ LOG = logging.getLogger(__name__)
 def _get_version_string() :
     version_num = pkg_resources.require('spacetimegrid')[0].version
     
-    return "Space Time Gridding, version " + str(version_num) 
+    return "Space Time Griding, version " + str(version_num)
 
 def _remove_file_patterns(path, *args):
     """Remove files that were created from a previous run,
@@ -91,25 +92,6 @@ def _expand_array_if_needed (in_array, min_size, fill_value=numpy.nan) :
 
     return to_return
 
-def _clean_path(string_path) :
-    """
-    Return a clean form of the path without any '.', '..', or '~'
-    """
-    clean_path = None
-    if string_path is not None :
-        clean_path = os.path.abspath(os.path.expanduser(string_path))
-
-    return clean_path
-
-def _setup_dir_if_needed(dir_path, description_name) :
-    """
-    create the directory if that is needed, if not don't
-    """
-    if not (os.path.isdir(dir_path)) :
-        LOG.info("Specified " + description_name + " directory (" + dir_path + ") does not exist.")
-        LOG.info("Creating " + description_name + " directory.")
-        os.makedirs(dir_path)
-
 def main():
     import optparse
     usage = """
@@ -117,9 +99,9 @@ def main():
 run "%prog help" to list commands
 examples:
 
-stg space_gridding_day -i /input/path -g 0.5 -t
-stg time_gridding_day -i /input/path -o /output/path
-stg time_gridding_multiday
+stg space_griding_day -i /input/path -g 0.5 -t
+stg time_griding_day -i /input/path -o /output/path
+stg time_griding_multiday
 stg flatfile_to_netCDF -o /output/path
 stg make_nobs_lut -i /input/path
 
@@ -166,7 +148,7 @@ stg make_nobs_lut -i /input/path
                                                                "the default is to only allow the best overpass in each cell"
                                                                " (best is determined by sensor angle)")
     
-    # parse the uers options from the command line
+    # parse the users options from the command line
     options, args = parser.parse_args()
     
     # set up the logging level based on the options the user selected on the command line
@@ -186,7 +168,7 @@ stg make_nobs_lut -i /input/path
     
     ##### The following functions represent available menu selections #####
     
-    def space_gridding_day(*args) :
+    def space_griding_day(*args) :
         """grid one day of input files in space
         given an input directory that contains appropriate files,
         grid them in space and put the resulting gridded files
@@ -198,16 +180,16 @@ stg make_nobs_lut -i /input/path
         
         # set up some of our input from the caller for easy access
         desired_variables  = list(args) if len(args) > 0 else [ ]
-        input_path         = _clean_path(options.inputPath)
-        output_path        = _clean_path(options.outputPath)
-        _setup_dir_if_needed(output_path, "output")
+        input_path         = stg_util.clean_path(options.inputPath)
+        output_path        = stg_util.clean_path(options.outputPath)
+        stg_util.setup_dir_if_needed(output_path, "output")
         min_scan_angle     = options.minScanAngle
         grid_degrees       = float(options.gridDegrees)
         do_day_night       = not options.keep_day_night_together
         do_multi_overpass  = options.allow_multiple_overpasses_per_cell
 
         temp_str = "will allow" if do_multi_overpass else "will not allow"
-        LOG.debug("Space gridding " + temp_str + " multiple overpasses per grid cell.")
+        LOG.debug("Space griding " + temp_str + " multiple overpasses per grid cell.")
 
         # determine the grid size in number of elements
         grid_lon_size      = int(math.ceil(360.0 / grid_degrees))
@@ -246,14 +228,14 @@ stg make_nobs_lut -i /input/path
 
             for suffix in expected_space_file_suffixes :
                 temp_stem = io_manager.build_name_stem(var_name, date_time=date_time_temp, satellite=satellite, suffix=suffix)
-                temp_name = fbf.filename(temp_stem, TEMP_DATA_TYPE, shape=(space_grid_shape))
+                temp_name = fbf.filename(temp_stem, TEMP_DATA_TYPE, shape=space_grid_shape)
                 if os.path.exists(os.path.join(output_path, temp_name)) :
                     LOG.warn ("Cannot process files because matching temporary or output files exist in the output directory.")
                     return
 
         # loop to deal with data from each of the files
         failed_files       = 0
-        sucessful_files    = 0
+        successful_files   = 0
         abstract_data_sets = io_manager.get_expected_abstract_sets(instrument, separate_day_night=do_day_night)
         collected_data     = { }
         for each_file in sorted(possible_files) :
@@ -286,7 +268,7 @@ stg make_nobs_lut -i /input/path
 
             except Exception, e :
 
-                LOG.warn("Unable to process basic space gridding for file: " + full_file_path)
+                LOG.warn("Unable to process basic space griding for file: " + full_file_path)
                 LOG.warn("This file will not be processed.")
 
                 exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -348,7 +330,7 @@ stg make_nobs_lut -i /input/path
 
                     except Exception, e :
 
-                        LOG.warn("Unable to process variable data space gridding for file: " + full_file_path)
+                        LOG.warn("Unable to process variable data space griding for file: " + full_file_path)
                         LOG.warn("This variable will not be processed.")
 
                         exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -366,6 +348,8 @@ stg make_nobs_lut -i /input/path
                         for set_key in data_sets.keys() :
 
                             if do_multi_overpass :
+
+                                # save temporary data to accumulate it as we go through all the files for a day
 
                                 # save the gridded data
                                 io_manager.save_data_to_file(io_manager.build_name_stem (variable_name, date_time=date_time_temp,
@@ -435,7 +419,7 @@ stg make_nobs_lut -i /input/path
                                     # mask of the places where there is data in both and it's the same orbits
                                     use_both_mask = both_have_data & (time_diff <= space_gridding.SAME_TIME_RANGE_SECONDS)
                                     # mask of the places where there is data in both and it's different orbit
-                                    use_only_new_data_mask = both_have_data & (time_diff > space_gridding.SAME_TIME_RANGE_SECONDS) & (better_new_angle)
+                                    use_only_new_data_mask = both_have_data & (time_diff > space_gridding.SAME_TIME_RANGE_SECONDS) & better_new_angle
                                     # Note: We will choose the orbit with the smallest maximum observed sensor zenith angle
                                     # in the grid cell – especially necessary at high latitudes
                                     use_new = have_only_new_data_mask | use_only_new_data_mask
@@ -476,16 +460,16 @@ stg make_nobs_lut -i /input/path
                                     current_set["nobs"]   [use_both_mask] +=         nobs[set_key][use_both_mask]
 
                         # if we got to here we processed the file successfully
-                        sucessful_files += 1
+                        successful_files += 1
 
             # make sure each file is closed when we're done with it
             io_manager.close_file(full_file_path, file_object)
 
-        LOG.debug("Successfully processed " + str(sucessful_files) + " files and failed to process " + str(failed_files) + " files for this day.")
+        LOG.debug("Successfully processed " + str(successful_files) + " files and failed to process " + str(failed_files) + " files for this day.")
         
         # warn the user if we have fewer files than we need for this instrument
-        if sucessful_files < (expected_num_files * EXPECTED_FRACTION_OF_FILES_PER_DAY) :
-            LOG.warn("Processed " + str(sucessful_files)    + " files successfully for this day.")
+        if successful_files < (expected_num_files * EXPECTED_FRACTION_OF_FILES_PER_DAY) :
+            LOG.warn("Processed " + str(successful_files)    + " files successfully for this day.")
             LOG.warn("Expected  " + str(expected_num_files) + " files for this instrument type.")
             
             if options.overrideMinCheck :
@@ -495,10 +479,24 @@ stg make_nobs_lut -i /input/path
                              "If you wish to produce the daily file(s), rerun the program using the \'-p\' option.")
         
         # only save the daily data if we have enough files or have turned off the minimum check
-        if ( (sucessful_files >= (expected_num_files * EXPECTED_FRACTION_OF_FILES_PER_DAY)) or options.overrideMinCheck ):
+        if ( (successful_files >= (expected_num_files * EXPECTED_FRACTION_OF_FILES_PER_DAY)) or options.overrideMinCheck ):
 
-            # open the output workspace
+            # open the output workspace to load temp files if needed
             var_workspace = Workspace.Workspace(dir=output_path)
+
+            # for use in labeling our output
+            date_time_str = io_manager.get_datestamp (date_time_temp)
+
+            # create a netCDF file to put our output in
+            file_title = date_time_str + "_" + satellite + "_" + DAILY_SPACE_TYPE
+            nc_output_file = io_manager.create_netCDF_output_file (output_path, file_title, do_ovewrite=False)
+
+            # set up the file's default dimensions
+            io_manager.set_up_dimensions_and_global_attrs_in_netCDF (nc_output_file,
+                                                                     grid_lat_size, grid_lon_size,
+                                                                     DAILY_SPACE_TYPE,
+                                                                     date_time_str,
+                                                                     global_attrs={"Satellite": satellite})
 
             # process each variable
             for variable_name in all_vars :
@@ -528,12 +526,11 @@ stg make_nobs_lut -i /input/path
                             # collapse the space grid
                             final_data = space_gridding.pack_space_grid(var_data, temp_density)
 
-                            # save the final array to an appropriately named file
-                            io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                    satellite=satellite,
-                                                                                    suffix=set_key + "-" + DAILY_SPACE_SUFFIX_KEY),
-                                                         space_grid_shape, output_path, final_data,
-                                                         TEMP_DATA_TYPE, file_permissions="w")
+                            # save the final collapsed data to our netCDF output file
+                            io_manager.add_variable_to_netCDF (nc_output_file,
+                                                               variable_name,
+                                                               final_data,
+                                                               suffix_list = [set_key,])
 
                             # load the nobs file
                             nobs_counts = var_workspace[io_manager.build_name_stem(variable_name, date_time=date_time_temp,
@@ -543,12 +540,11 @@ stg make_nobs_lut -i /input/path
                             # collapse the nobs for the whole day
                             nobs_final = numpy.sum(nobs_counts, axis=0)
 
-                            # save the final nobs array to an appropriately named file
-                            io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                    satellite=satellite,
-                                                                                    suffix=set_key + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY),
-                                                         space_grid_shape, output_path,
-                                                         nobs_final, TEMP_DATA_TYPE, file_permissions="w")
+                            # save the final nobs to our netCDF output file
+                            io_manager.add_variable_to_netCDF (nc_output_file,
+                                                               variable_name,
+                                                               nobs_final,
+                                                               suffix_list = [set_key, NOBS_SUFFIX])
 
                         else :
                             LOG.warn("No " + set_key + " data was found for variable " + variable_name + ". Corresponding files will not be written.")
@@ -571,21 +567,17 @@ stg make_nobs_lut -i /input/path
                         # only process the final data if it exists
                         if max_depth > 0 :
 
-                            # save the final space gridded array to an appropriately named file
-                            io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                    satellite=satellite,
-                                                                                    suffix=set_key + "-" + DAILY_SPACE_SUFFIX_KEY),
-                                                         space_grid_shape, output_path,
-                                                         current_set["space-gridded-data"][0:max_depth, :, :],
-                                                         TEMP_DATA_TYPE, file_permissions="w")
+                            # save the space gridded data to our netCDF output file
+                            io_manager.add_variable_to_netCDF (nc_output_file,
+                                                               variable_name,
+                                                               current_set["space-gridded-data"][0:max_depth, :, :],
+                                                               suffix_list = [set_key,])
 
-                            # save the final nobs array to an appropriately named file
-                            io_manager.save_data_to_file(io_manager.build_name_stem(variable_name, date_time=date_time_temp,
-                                                                                    satellite=satellite,
-                                                                                    suffix=set_key + "-" + NOBS_SUFFIX + "-" + DAILY_SPACE_SUFFIX_KEY),
-                                                         space_grid_shape, output_path,
-                                                         current_set["nobs"],
-                                                         TEMP_DATA_TYPE, file_permissions="w")
+                            # save the final nobs to our netCDF output file
+                            io_manager.add_variable_to_netCDF (nc_output_file,
+                                                               variable_name,
+                                                               current_set["nobs"],
+                                                               suffix_list = [set_key, NOBS_SUFFIX])
 
                         else :
                             LOG.warn("No " + set_key + " data was found for variable " + variable_name + ". Corresponding files will not be written.")
@@ -595,7 +587,7 @@ stg make_nobs_lut -i /input/path
         remove_suffixes = ["*" + p + "*" for p in temp_suffix_list]
         _remove_file_patterns(output_path, remove_suffixes)
     
-    def time_gridding_day(*args) :
+    def time_griding_day(*args) :
         """given a day worth of files of daily space gridded data, calculate daily stats
         
         given an input directory that contains space gridded files for a day,
@@ -604,68 +596,75 @@ stg make_nobs_lut -i /input/path
         """
         
         # set up some of our caller determined settings for easy access
-        input_path      = _clean_path(options.inputPath)
-        output_path     = _clean_path(options.outputPath)
-        _setup_dir_if_needed(output_path, "output")
+        input_path      = stg_util.clean_path(options.inputPath)
+        output_path     = stg_util.clean_path(options.outputPath)
+        stg_util.setup_dir_if_needed(output_path, "output")
         fix_nobs_cutoff = options.fixedNobsCutoff   if options.fixedNobsCutoff   >= 0 else None
         dyn_nobs_cutoff = options.dynamicNobsCutoff if options.dynamicNobsCutoff >= 0 else None
         nobs_LUT_path   = options.nobsLUT
-        
-        # check the directory for sets of daily files
-        expected_files_by_date = defaultdict(list)
-        possible_files = os.listdir(input_path)
-        for file_name in sorted(possible_files) :
-            if file_name.startswith(PLOT_SUFFIX) :
-                LOG.debug("Disregarding plot file: " + str(file_name))
-            else :
-                date_stamp = io_manager.get_date_stamp_from_file_name(file_name)
-                if date_stamp is None :
-                    LOG.debug("Disregarding file with no date stamp: " + str(file_name))
-                else :
-                    expected_files_by_date[date_stamp].append(file_name)
-        
-        # organize the daily files
-        organized_files = { }
-        for date_stamp in expected_files_by_date.keys() :
-            
-            organized_files[date_stamp] = io_manager.organize_space_gridded_files(expected_files_by_date[date_stamp])
-        
-        # set up the variable workspace so we can load our input files
-        var_workspace = Workspace.Workspace(dir=input_path)
 
-        # for each set of daily files
-        for date_stamp in organized_files.keys() :
-            
-            LOG.debug("Processing files for date stamp " + str(date_stamp))
+        # get the nobs LUT if it was provided
+        # TODO, this isn't properly tested because I haven't made a test nobs look up table yet
+        # TODO, this also needs to move to a netCDF input
+        nobs_LUT = None
+        if nobs_LUT_path is not None :
+            path_temp = os.path.split(nobs_LUT_path)
+            temp_workspace = Workspace.Workspace(dir=path_temp[0])
+            file_stem_temp = path_temp[0].split(".")[0]
 
-            # pull all the file paths for this day
-            this_day = organized_files[date_stamp]
+            nobs_LUT = temp_workspace[file_stem_temp][:]
 
-            # go through each set for the day
-            for set_key in this_day.keys() :
-                
-                LOG.debug("Processing file set for " + str(set_key))
+        # get a rough list of the daily gridded files
+        possible_files = [ ]
+        for file_name in os.listdir(input_path) :
+            print("file name: " + file_name)
+            if io_manager.is_stg_output_file(file_name, specific_type=DAILY_SPACE_TYPE) :
+                possible_files.append(os.path.join(input_path, file_name))
 
-                # pull the base stem for ease of use
-                base_stem    = this_day[set_key][BLANK_STEM_KEY]
-                
-                # load the main space gridded data
-                main_stem    = this_day[set_key][SPACE_GRID_KEY].split('.')[0]
-                gridded_data = var_workspace[main_stem][:]
+        # process each daily gridded file
+        for possible_file in possible_files :
 
-                # load the nobs
-                nobs_stem    = this_day[set_key][NOBS_SUFFIX].split('.')[0]
-                nobs_data    = var_workspace[nobs_stem][:]
+            LOG.debug("Processing daily space gridded file: " + possible_file)
 
-                # get the nobs LUT if it was provided
-                # TODO, shouldn't this be loaded once rather than per day?
-                nobs_LUT = None
-                if nobs_LUT_path is not None :
-                    path_temp = os.path.split(nobs_LUT_path)
-                    temp_workspace = Workspace.Workspace(dir=path_temp[0])
-                    file_stem_temp = path_temp[0].split(".")[0]
+            # open the file object
+            file_object = Dataset(possible_file, mode="r") # TODO, do I need to catch when it fails to open files?
 
-                    nobs_LUT = temp_workspace[file_stem_temp][:]
+            # pull some general information from the file
+            date_time_str = file_object.DateTime
+            satellite     = file_object.Satellite
+            lat_size, lon_size = io_manager.get_nc_latlon_sizes(file_object)
+
+            # sort the variables so they are organized by name and categories
+            sorted_var_names = io_manager.sort_variable_names(file_object)
+            # sorted format: {var name: {"cats": <category list string>, "nobs": the nobs variable name}}
+            #print("variables: " + str(file_object.variables.keys()))
+            #print("sorted:    " + str(sorted_var_names))
+
+            # create our output file
+            file_title = date_time_str + "_" + satellite + "_" + DAILY_TIME_TYPE
+            nc_output_file = io_manager.create_netCDF_output_file (output_path, file_title, do_ovewrite=False)
+
+            # set up the file's default dimensions
+            io_manager.set_up_dimensions_and_global_attrs_in_netCDF (nc_output_file,
+                                                                     lat_size, lon_size,
+                                                                     DAILY_TIME_TYPE,
+                                                                     date_time_str,
+                                                                     global_attrs={"Satellite": satellite})
+
+            # process the data for each variable
+            for var_name in sorted_var_names.keys() :
+
+                LOG.debug("Processing variable: " + var_name)
+
+                # get the variable object for convenience
+                var_object = file_object.variables[var_name]
+
+                # load some info on the variable
+                orig_name = var_object.originalVarName
+
+                # load the raw data and the nobs
+                gridded_data = var_object[:]
+                nobs_data    = file_object.variables[sorted_var_names[var_name]["nobs"]][:]
 
                 # build the cutoff mask
                 bad_data     = time_gridding.create_sample_size_cutoff_mask(nobs_data,
@@ -675,13 +674,15 @@ stg make_nobs_lut -i /input/path
                 # apply the cutoff mask
                 clean_gridded_data           = gridded_data.copy()
                 clean_gridded_data[bad_data] = numpy.nan
-                
+
                 # figure out if we need to split our data
-                variable_name  = general_guidebook.get_variable_name_from_flat_file(base_stem)
-                masks_to_split = general_guidebook.mask_variable_for_time_gridding(base_stem, variable_name, clean_gridded_data)
+                masks_to_split = general_guidebook.mask_variable_for_time_gridding(satellite, orig_name, clean_gridded_data)
 
                 # for each mask given, analyze the data selected by that mask
                 for mask_key in masks_to_split.keys() :
+
+                    if len(mask_key) > 0 :
+                        LOG.debug("Processing masked subset: " + mask_key)
 
                     # select only the data from this mask, with the rest set to be nan
                     this_mask                 = masks_to_split[mask_key]
@@ -690,7 +691,7 @@ stg make_nobs_lut -i /input/path
 
                     # calculate the data fraction
                     num_mes          = numpy.sum(numpy.isfinite(this_mask_data), axis=0)
-                    nobs             = nobs_data[0]
+                    nobs             = nobs_data
 
                     # calculate the std
                     std_values  = numpy.nanstd(this_mask_data, axis=0)
@@ -700,34 +701,57 @@ stg make_nobs_lut -i /input/path
                     cloud_frac  = num_mes / nobs
                     # calculate the uncertainty (std / num meas)
                     uncertainty = std_values / num_mes
-                    
+
                     # save the various stats to files
-                    
+
+                    # make the new category list by adding the mask info to it
+                    category_list = sorted_var_names[var_name]["cats"].split(" ")
+                    if len(mask_key) > 0 :
+                        category_list.append(mask_key)
+
                     # save the std and the mean
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + STD_SUFFIX,
-                                                 std_values.shape, output_path, std_values,
-                                                 TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + MEAN_SUFFIX,
-                                                 mean_values.shape, output_path, mean_values,
-                                                 TEMP_DATA_TYPE, file_permissions="w")
+                    std_cats = list(category_list)
+                    std_cats.append(STD_SUFFIX)
+                    io_manager.add_variable_to_netCDF(nc_output_file,
+                                                      orig_name,
+                                                      std_values,
+                                                      suffix_list=std_cats)
+                    mean_cats = list(category_list)
+                    mean_cats.append(MEAN_SUFFIX)
+                    io_manager.add_variable_to_netCDF(nc_output_file,
+                                                      orig_name,
+                                                      mean_values,
+                                                      suffix_list=mean_cats)
 
                     # save the cloud fraction and uncertainty
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + CLOUD_FRACTION_SUFFIX,
-                                                 cloud_frac.shape, output_path, cloud_frac,
-                                                 TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + UNCERTAINTY_SUFFIX,
-                                                 uncertainty.shape, output_path, uncertainty,
-                                                 TEMP_DATA_TYPE, file_permissions="w")
+                    cloud_frac_cats = list(category_list)
+                    cloud_frac_cats.append(CLOUD_FRACTION_SUFFIX)
+                    io_manager.add_variable_to_netCDF(nc_output_file,
+                                                      orig_name,
+                                                      cloud_frac,
+                                                      suffix_list=cloud_frac_cats)
+                    uncertainty_cats = list(category_list)
+                    uncertainty_cats.append(UNCERTAINTY_SUFFIX)
+                    io_manager.add_variable_to_netCDF(nc_output_file,
+                                                      orig_name,
+                                                      uncertainty,
+                                                      suffix_list=uncertainty_cats)
 
                     # save the number of measurements and observations
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + NUM_MES_SUFFIX,
-                                                 num_mes.shape, output_path, num_mes,
-                                                 TEMP_DATA_TYPE, file_permissions="w")
-                    io_manager.save_data_to_file(base_stem + "_" + set_key + "-" + mask_key + "-" + DAILY_TIME_SUFFIX_KEY + "-" + NOBS_SUFFIX,
-                                                 nobs.shape, output_path, nobs,
-                                                 TEMP_DATA_TYPE, file_permissions="w")
+                    num_mes_cats = list(category_list)
+                    num_mes_cats.append(NUM_MES_SUFFIX)
+                    io_manager.add_variable_to_netCDF(nc_output_file,
+                                                      orig_name,
+                                                      num_mes,
+                                                      suffix_list=num_mes_cats)
+                    nobs_cats = list(category_list)
+                    nobs_cats.append(NOBS_SUFFIX)
+                    io_manager.add_variable_to_netCDF(nc_output_file,
+                                                      orig_name,
+                                                      nobs,
+                                                      suffix_list=nobs_cats)
 
-    def time_gridding_multiday(*args) :
+    def time_griding_multiday(*args) :
         """given a directory with multiple days of daily space gridded data, calculate overall stats
 
         given an input directory that contains appropriate daily stats for
@@ -742,150 +766,21 @@ stg make_nobs_lut -i /input/path
 
         # TODO, this is unfinished
 
-    def flatfile_to_netCDF (*args) :
-        """given an input path, convert the space and time gridded flat files in that path into netCDF files
-
-        This method will output one file per day of space gridded data (multiple variables per file)
-        and one netCDF file per day of daily time gridded data (multiple variables per file).
-        File output names are determined based on the type of data, variables, and date of the data.
-
-        Note: This method can handle processing multiple types of data and data from different dates in the
-        same run, but it can't handle different grid sizes. Please only give it an input directory with
-        data of the same grid size.
-
-        FUTURE: This method does not yet handle multi-day time gridded data.
-        """
-
-        # set up some of our input from the caller for easy access
-        desired_variables = list(args) if len(args) > 0 else [ ]
-        input_path        = _clean_path(options.inputPath)
-        output_path       = _clean_path(options.outputPath)
-        _setup_dir_if_needed(output_path, "output")
-
-        # check the directory for input files
-        lat_size = None
-        lon_size = None
-        organized_files = { }
-        possible_files = os.listdir(input_path)
-        for file_name in sorted(possible_files) :
-
-            # get information about our files based on their names
-            file_type, var_name, datetimestr, satellite, suffix, var_shape = io_manager.parse_flatfile_name(file_name)
-
-            # if we could parse the name as a we expected for a flat file
-            if file_type is not None and datetimestr is not None :
-
-                # note: this is a convenience for declaring dimensions later and won't work if we have differing grid sizes
-                lat_size = int(var_shape[0])
-                lon_size = int(var_shape[1])
-
-                if file_type not in organized_files :
-                    organized_files[file_type] = { }
-
-                if datetimestr not in organized_files[file_type] :
-                    organized_files[file_type][datetimestr] = { }
-
-                if var_name not in organized_files[file_type][datetimestr] :
-                    organized_files[file_type][datetimestr][var_name] = [ ]
-
-                # save information on this file organized by type and date
-                organized_files[file_type][datetimestr][var_name].append([file_name, satellite, suffix, var_shape])
-
-            else :
-                LOG.debug("Unable to parse file name as flat file. This file will not be processed: " + file_name)
-
-        # set up the variable workspace so we can load our input files
-        var_workspace = Workspace.Workspace(dir=input_path)
-
-        # for each file type and date stamp, create an output netCDF
-        for file_type in sorted(organized_files.keys()) :
-            for datetimestr in sorted(organized_files[file_type].keys()) :
-
-                # create a blank nc file
-                out_file_path = os.path.abspath(os.path.expanduser(os.path.join(output_path, datetimestr + "_" + file_type + ".nc")))
-                LOG.debug("Creating file for type \"" + file_type + "\" and date stamp \"" + datetimestr + "\": " + out_file_path)
-                out_file = Dataset(out_file_path, mode='w', format='NETCDF4', clobber=True)
-
-                # declare our lat and lon dimensions
-                out_file.createDimension("latitude",  lat_size)
-                out_file.createDimension("longitude", lon_size)
-
-                # create some global attributes
-                setattr(out_file, "GriddingType", file_type)
-                setattr(out_file, "DateTime",     datetimestr)
-
-                # create the lat/lon grids
-                LOG.debug("Adding coordinate variable information to output file.")
-                lat_array = numpy.linspace( -90.0,  90.0, lat_size)
-                lon_array = numpy.linspace(-180.0, 180.0, lon_size+1)[0:-1] # since -180 and 180 are the same point, only include one of the two
-                lat_data = numpy.array([lat_array,]*lon_size).transpose()
-                lon_data = numpy.array([lon_array,]*lat_size)
-                out_var_obj = out_file.createVariable("latitude",  numpy.float32, ("latitude"), fill_value=numpy.nan)
-                out_var_obj.set_auto_maskandscale(False)
-                out_var_obj[:] = lat_array
-                out_var_obj = out_file.createVariable("longitude", numpy.float32, ("longitude"), fill_value=numpy.nan)
-                out_var_obj.set_auto_maskandscale(False)
-                out_var_obj[:] = lon_array
-                out_var_obj = out_file.createVariable("latitude-grid",  numpy.float32, ("latitude", "longitude"), fill_value=numpy.nan)
-                out_var_obj.set_auto_maskandscale(False)
-                out_var_obj[:] = lat_data
-                out_var_obj = out_file.createVariable("longitude-grid", numpy.float32, ("latitude", "longitude"), fill_value=numpy.nan)
-                out_var_obj.set_auto_maskandscale(False)
-                out_var_obj[:] = lon_data
-
-                # add the data for our variables to the file
-                for var_name in sorted(organized_files[file_type][datetimestr].keys()) :
-
-                    for data_subset in organized_files[file_type][datetimestr][var_name] :
-
-                        [file_name, satellite, suffix, var_shape] = data_subset
-
-                        LOG.debug("Adding variable information for " + str(var_name) + " " + str(suffix) + " data to output file.")
-
-                        file_stem = file_name.split('.')[0]
-                        raw_data  = var_workspace[file_stem][:]
-
-                        out_variable_name = var_name + "_" + satellite + "_" + suffix
-
-                        # do some checks on the data shape
-                        temp_shape = raw_data.shape
-                        assert (temp_shape[1] == lat_size)
-                        assert (temp_shape[2] == lon_size)
-
-                        # if we need another dimension, generate that
-                        third_dim = None
-                        if temp_shape[0] > 1 :
-                            third_dim = out_variable_name + "_count"
-                            out_file.createDimension(third_dim, temp_shape[0])
-                        else :
-                            raw_data = raw_data[0]
-
-                        # create the variable with the appropriate dimensions
-                        dims = (third_dim, "latitude", "longitude") if third_dim is not None else ("latitude", "longitude")
-                        out_var_obj = out_file.createVariable(out_variable_name, numpy.float32, dims, fill_value=numpy.nan)
-                        out_var_obj.set_auto_maskandscale(False)
-
-                        # set the variable attributes
-                        setattr(out_var_obj, "satellite",       satellite)
-                        setattr(out_var_obj, "subType",         suffix)
-                        setattr(out_var_obj, "originalVarName", var_name)
-
-                        # set the variable data
-                        out_var_obj[:] = raw_data
-
     def make_nobs_lut (*args) :
         """given a directory with a multiple daily space gridded files, make a nobs look up table
 
         generally this will expect a month of daily space gridded files and will
         output some files with statistical information on the nobs across that period
         the resulting look up tables are intended to be used with dynamic cutoffs in
-        time_gridding_multiday calls
+        time_griding_multiday calls
         """
 
+        # TODO, transition this to reading in netCDF daily files instead
+
         # set up some of our caller determined settings for easy access
-        input_path      = _clean_path(options.inputPath)
-        output_path     = _clean_path(options.outputPath)
-        _setup_dir_if_needed(output_path, "output")
+        input_path      = stg_util.clean_path(options.inputPath)
+        output_path     = stg_util.clean_path(options.outputPath)
+        stg_util.setup_dir_if_needed(output_path, "output")
 
         # check the directory for sets of daily files
         expected_files_by_date = defaultdict(list)

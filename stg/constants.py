@@ -106,6 +106,11 @@ DAILY_SPACE_TYPE          = "daily-space-gridded"
 DAILY_TIME_TYPE           = "daily-time-gridded"
 MULTIDAY_TIME_TYPE        = "multiday-time-gridded"
 NOBS_LUT_TYPE             = "nobs-look-up-table"
+ALL_STG_FILE_TYPES        = {DAILY_SPACE_TYPE, DAILY_TIME_TYPE, MULTIDAY_TIME_TYPE, NOBS_LUT_TYPE}
+
+# constants about our output file format
+NETCDF_SUFFIX             = "nc"
+
 # the next three are for classifying file sets
 TEMP_FILE_TYPE            = "temp-file"
 FINAL_OUT_FILE_TYPE       = "final-output-file"
